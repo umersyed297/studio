@@ -1,3 +1,4 @@
+
 'use server';
 
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
@@ -39,11 +40,8 @@ export async function saveObservationAction(
     // Check if it's a Firebase error with a code property
     if (error instanceof Error && typeof (error as any).code === 'string') {
       const firebaseErrorCode = (error as any).code;
-      if (firebaseErrorCode === 'storage/no-default-bucket') {
-        finalMessage = "Configuration error: Firebase Storage bucket is not set. Please ensure NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET is defined in your environment variables (e.g., in a .env.local file at the root of your project) and that it's the correct bucket name for your Firebase project.";
-      } else {
-        finalMessage = `Failed to save observation: ${error.message} (Code: ${firebaseErrorCode})`;
-      }
+      // Reverted to a more generic message format for all Firebase errors
+      finalMessage = `Failed to save observation: ${error.message} (Code: ${firebaseErrorCode})`;
     } else if (error instanceof Error) { // Generic JavaScript error
       finalMessage = `Failed to save observation: ${error.message}`;
     } else { // Unknown error
@@ -53,3 +51,4 @@ export async function saveObservationAction(
     return { success: false, message: finalMessage };
   }
 }
+
