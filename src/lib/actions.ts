@@ -4,7 +4,7 @@ import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { db, storage } from '@/lib/firebase';
 import type { Observation } from '@/types';
-import { observationFormSchema, type ObservationFormValues } from '@/lib/schemas'; // Assuming this is where validated form values type comes from
+import { observationFormSchema, type ObservationFormValues } from '@/lib/schemas';
 
 export async function saveObservationAction(
   validatedData: ObservationFormValues,
@@ -34,8 +34,22 @@ export async function saveObservationAction(
     return { success: true, message: 'Observation saved successfully!', observationId: docRef.id };
   } catch (error) {
     console.error('Error saving observation:', error);
-    // Check if error is an instance of Error to safely access message property
-    const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred.';
-    return { success: false, message: `Failed to save observation: ${errorMessage}` };
+    let finalMessage: string;
+
+    // Check if it's a Firebase error with a code property
+    if (error instanceof Error && typeof (error as any).code === 'string') {
+      const firebaseErrorCode = (error as any).code;
+      if (firebaseErrorCode === 'storage/no-default-bucket') {
+        finalMessage = "Configuration error: Firebase Storage bucket is not set. Please ensure NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET is defined in your environment variables (e.g., in a .env.local file at the root of your project) and that it's the correct bucket name for your Firebase project.";
+      } else {
+        finalMessage = `Failed to save observation: ${error.message} (Code: ${firebaseErrorCode})`;
+      }
+    } else if (error instanceof Error) { // Generic JavaScript error
+      finalMessage = `Failed to save observation: ${error.message}`;
+    } else { // Unknown error
+      finalMessage = 'Failed to save observation due to an unknown error.';
+    }
+    
+    return { success: false, message: finalMessage };
   }
 }
