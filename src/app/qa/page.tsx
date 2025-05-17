@@ -24,20 +24,20 @@ export default function QAPage() {
   const [inputValue, setInputValue] = useState('');
   const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const scrollAreaRef = useRef<HTMLDivElement>(null);
+  const scrollAreaRef = useRef<HTMLDivElement>(null); // Ref for the ScrollArea component (Root)
+  const chatContentRef = useRef<HTMLDivElement>(null); // Ref for the direct content wrapper inside ScrollArea
 
   const scrollToBottom = () => {
-    if (scrollAreaRef.current) {
-      // The direct child of ScrollArea is the Viewport
+    if (scrollAreaRef.current && chatContentRef.current) {
       const viewport = scrollAreaRef.current.querySelector('div[data-radix-scroll-area-viewport]');
       if (viewport) {
-        viewport.scrollTop = viewport.scrollHeight;
+        // Scroll the viewport based on the scrollHeight of the inner content div
+        viewport.scrollTop = chatContentRef.current.scrollHeight;
       }
     }
   };
 
   useEffect(() => {
-    // Use requestAnimationFrame to ensure scrolling happens after DOM updates and layout are complete.
     const animationFrameId = requestAnimationFrame(() => {
       scrollToBottom();
     });
@@ -103,85 +103,83 @@ export default function QAPage() {
         </div>
       </header>
 
-      {/* Card's height is now content-driven */}
       <Card className="w-full max-w-2xl shadow-xl flex flex-col">
-        {/* CardContent's height is sum of ScrollArea and Input Div */}
         <CardContent className="p-0 flex flex-col">
-          {/* ScrollArea will have min/max height and scroll internally when max is reached */}
           <ScrollArea
-            className="p-4 md:p-6 space-y-4 min-h-[200px] max-h-[60vh] lg:min-h-[300px] lg:max-h-[65vh]"
+            className="min-h-[200px] max-h-[60vh] lg:min-h-[300px] lg:max-h-[65vh]"
             ref={scrollAreaRef}
           >
-            {chatHistory.length === 0 && !isLoading && (
-              <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
-                <BrainCircuit className="h-16 w-16 mb-4 opacity-50" />
-                <p className="text-center">Ask a question to start the conversation!</p>
-                <p className="text-xs mt-1 text-center">e.g., "What birds are in Margalla Hills?"</p>
-              </div>
-            )}
-            {chatHistory.map(msg => (
-              <div
-                key={msg.id}
-                className={cn(
-                  'flex items-end space-x-2 my-3',
-                  msg.sender === 'user' ? 'justify-end' : 'justify-start'
-                )}
-              >
-                {msg.sender === 'ai' && (
-                  <Avatar className="h-8 w-8 self-start">
-                    <AvatarFallback className={cn(
-                      "bg-primary text-primary-foreground",
-                      msg.error && "bg-destructive text-destructive-foreground"
-                    )}>
-                      {msg.error ? <AlertTriangle size={20}/> : <Bot size={20} />}
-                    </AvatarFallback>
-                  </Avatar>
-                )}
+            <div className="p-4 md:p-6 space-y-4" ref={chatContentRef}>
+              {chatHistory.length === 0 && !isLoading && (
+                <div className="flex flex-col items-center justify-center h-full text-muted-foreground" style={{minHeight: '150px'}}> {/* Ensure placeholder has some height */}
+                  <BrainCircuit className="h-16 w-16 mb-4 opacity-50" />
+                  <p className="text-center">Ask a question to start the conversation!</p>
+                  <p className="text-xs mt-1 text-center">e.g., "What birds are in Margalla Hills?"</p>
+                </div>
+              )}
+              {chatHistory.map(msg => (
                 <div
+                  key={msg.id}
                   className={cn(
-                    'max-w-[70%] rounded-lg px-3 py-2 shadow-md text-sm md:text-base break-words',
-                    msg.sender === 'user'
-                      ? 'bg-primary text-primary-foreground rounded-br-none'
-                      : msg.error
-                        ? 'bg-destructive/20 text-destructive-foreground border border-destructive rounded-bl-none'
-                        : 'bg-card text-card-foreground rounded-bl-none border'
+                    'flex items-end space-x-2 my-3',
+                    msg.sender === 'user' ? 'justify-end' : 'justify-start'
                   )}
                 >
-                  <p>{msg.text}</p>
-                   <p className={cn(
-                      "text-xs mt-1",
-                      msg.sender === 'user' ? 'text-primary-foreground/70 text-right' : 'text-muted-foreground/70 text-left'
-                    )}>
-                      {msg.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                    </p>
+                  {msg.sender === 'ai' && (
+                    <Avatar className="h-8 w-8 self-start">
+                      <AvatarFallback className={cn(
+                        "bg-primary text-primary-foreground",
+                        msg.error && "bg-destructive text-destructive-foreground"
+                      )}>
+                        {msg.error ? <AlertTriangle size={20}/> : <Bot size={20} />}
+                      </AvatarFallback>
+                    </Avatar>
+                  )}
+                  <div
+                    className={cn(
+                      'max-w-[70%] rounded-lg px-3 py-2 shadow-md text-sm md:text-base break-words',
+                      msg.sender === 'user'
+                        ? 'bg-primary text-primary-foreground rounded-br-none'
+                        : msg.error
+                          ? 'bg-destructive/20 text-destructive-foreground border border-destructive rounded-bl-none'
+                          : 'bg-card text-card-foreground rounded-bl-none border'
+                    )}
+                  >
+                    <p>{msg.text}</p>
+                     <p className={cn(
+                        "text-xs mt-1",
+                        msg.sender === 'user' ? 'text-primary-foreground/70 text-right' : 'text-muted-foreground/70 text-left'
+                      )}>
+                        {msg.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </p>
+                  </div>
+                  {msg.sender === 'user' && (
+                    <Avatar className="h-8 w-8 self-start">
+                      <AvatarFallback className="bg-secondary text-secondary-foreground">
+                        <User size={20} />
+                      </AvatarFallback>
+                    </Avatar>
+                  )}
                 </div>
-                {msg.sender === 'user' && (
+              ))}
+              {isLoading && chatHistory[chatHistory.length-1]?.sender === 'user' && (
+                <div className="flex items-end space-x-2 justify-start my-3">
                   <Avatar className="h-8 w-8 self-start">
-                    <AvatarFallback className="bg-secondary text-secondary-foreground">
-                      <User size={20} />
-                    </AvatarFallback>
+                     <AvatarFallback className="bg-primary text-primary-foreground">
+                          <Bot size={20} />
+                      </AvatarFallback>
                   </Avatar>
-                )}
-              </div>
-            ))}
-            {isLoading && chatHistory[chatHistory.length-1]?.sender === 'user' && (
-              <div className="flex items-end space-x-2 justify-start my-3">
-                <Avatar className="h-8 w-8 self-start">
-                   <AvatarFallback className="bg-primary text-primary-foreground">
-                        <Bot size={20} />
-                    </AvatarFallback>
-                </Avatar>
-                <div className="max-w-[70%] rounded-lg px-3 py-2 shadow-md text-sm md:text-base bg-card text-card-foreground rounded-bl-none border">
-                  <div className="flex items-center space-x-1">
-                    <span className="h-2 w-2 bg-muted-foreground rounded-full animate-pulse delay-75"></span>
-                    <span className="h-2 w-2 bg-muted-foreground rounded-full animate-pulse delay-150"></span>
-                    <span className="h-2 w-2 bg-muted-foreground rounded-full animate-pulse delay-225"></span>
+                  <div className="max-w-[70%] rounded-lg px-3 py-2 shadow-md text-sm md:text-base bg-card text-card-foreground rounded-bl-none border">
+                    <div className="flex items-center space-x-1">
+                      <span className="h-2 w-2 bg-muted-foreground rounded-full animate-pulse delay-75"></span>
+                      <span className="h-2 w-2 bg-muted-foreground rounded-full animate-pulse delay-150"></span>
+                      <span className="h-2 w-2 bg-muted-foreground rounded-full animate-pulse delay-225"></span>
+                    </div>
                   </div>
                 </div>
-              </div>
-            )}
+              )}
+            </div> {/* End of chatContentRef div */}
           </ScrollArea>
-          {/* Input area at the bottom of CardContent */}
           <div className="p-4 border-t">
             <form onSubmit={handleSubmit} className="flex items-center space-x-2">
               <Input
