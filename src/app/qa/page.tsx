@@ -25,16 +25,13 @@ export default function QAPage() {
   const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const scrollViewportRef = useRef<HTMLDivElement>(null); // Ref for the ScrollArea's Root element
-  const chatContentRef = useRef<HTMLDivElement>(null); // Ref for the direct content wrapper holding messages
 
   const scrollToBottom = () => {
-    if (scrollViewportRef.current && chatContentRef.current) {
-      // scrollViewportRef.current is the ScrollArea Root.
-      // We need to find the viewport child to set its scrollTop.
+    if (scrollViewportRef.current) {
       // Radix UI's ScrollAreaViewport has a data attribute 'data-radix-scroll-area-viewport'.
       const viewport = scrollViewportRef.current.querySelector<HTMLDivElement>('div[data-radix-scroll-area-viewport]');
       if (viewport) {
-        viewport.scrollTop = chatContentRef.current.scrollHeight;
+        viewport.scrollTop = viewport.scrollHeight;
       }
     }
   };
@@ -43,7 +40,7 @@ export default function QAPage() {
     // Using requestAnimationFrame to ensure scrolling happens after DOM updates for new messages
     const animationFrameId = requestAnimationFrame(scrollToBottom);
     return () => cancelAnimationFrame(animationFrameId);
-  }, [chatHistory]); // Dependency on chatHistory
+  }, [chatHistory]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -107,11 +104,11 @@ export default function QAPage() {
       <Card className="w-full max-w-2xl shadow-xl flex flex-col">
         <CardContent className="p-0 flex flex-col">
           <ScrollArea
-            className="min-h-[200px] max-h-[60vh] lg:min-h-[300px] lg:max-h-[65vh]"
-            type="always" // Forces scrollbar tracks to be visible
+            className="min-h-[200px] max-h-[60vh] lg:min-h-[300px] lg:max-h-[65vh] p-4 md:p-6" // Padding directly on ScrollArea
+            type="always" // Scrollbar tracks always visible
             ref={scrollViewportRef}
           >
-            <div className="p-4 md:p-6 space-y-4" ref={chatContentRef}>
+            <div className="space-y-4"> {/* Simple wrapper for message spacing */}
               {chatHistory.length === 0 && !isLoading && (
                 <div className="flex flex-col items-center justify-center h-full text-muted-foreground" style={{minHeight: '150px'}}>
                   <BrainCircuit className="h-16 w-16 mb-4 opacity-50" />
@@ -180,7 +177,7 @@ export default function QAPage() {
                   </div>
                 </div>
               )}
-            </div> {/* End of chatContentRef div */}
+            </div>
           </ScrollArea>
           <div className="p-4 border-t">
             <form onSubmit={handleSubmit} className="flex items-center space-x-2">
