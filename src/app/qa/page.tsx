@@ -37,7 +37,11 @@ export default function QAPage() {
   };
 
   useEffect(() => {
-    scrollToBottom();
+    // Use requestAnimationFrame to ensure scrolling happens after DOM updates and layout are complete.
+    const animationFrameId = requestAnimationFrame(() => {
+      scrollToBottom();
+    });
+    return () => cancelAnimationFrame(animationFrameId);
   }, [chatHistory]);
 
   const handleSubmit = async (e: React.FormEvent) => {
