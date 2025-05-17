@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
@@ -24,7 +23,7 @@ export default function QAPage() {
   const [inputValue, setInputValue] = useState('');
   const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const scrollViewportRef = useRef<HTMLDivElement>(null); // Ref for the ScrollArea's Root element
+  const scrollViewportRef = useRef<HTMLDivElement>(null); 
 
   const scrollToBottom = () => {
     if (scrollViewportRef.current) {
@@ -37,7 +36,6 @@ export default function QAPage() {
   };
 
   useEffect(() => {
-    // Using requestAnimationFrame to ensure scrolling happens after DOM updates for new messages
     const animationFrameId = requestAnimationFrame(scrollToBottom);
     return () => cancelAnimationFrame(animationFrameId);
   }, [chatHistory]);
@@ -89,7 +87,7 @@ export default function QAPage() {
           Ask About Biodiversity
         </h1>
         <p className="text-muted-foreground mt-2 text-lg">
-          Chat with an AI about wildlife, plants, and ecosystems.
+          Chat with an AI about wildlife, plants, and ecosystems. (Uses Gemini API)
         </p>
         <div className="mt-6">
           <Button asChild variant="outline">
@@ -104,11 +102,11 @@ export default function QAPage() {
       <Card className="w-full max-w-2xl shadow-xl flex flex-col">
         <CardContent className="p-0 flex flex-col">
           <ScrollArea
-            className="min-h-[200px] max-h-[60vh] lg:min-h-[300px] lg:max-h-[65vh]" // Padding removed from here
-            type="always" // Scrollbar tracks always visible
+            className="min-h-[200px] max-h-[60vh] lg:min-h-[300px] lg:max-h-[65vh]"
+            type="always" 
             ref={scrollViewportRef}
           >
-            <div className="space-y-4 p-4 md:p-6"> {/* Padding moved here, wrapper for message spacing */}
+            <div className="space-y-4 p-4 md:p-6">
               {chatHistory.length === 0 && !isLoading && (
                 <div className="flex flex-col items-center justify-center h-full text-muted-foreground" style={{minHeight: '150px'}}>
                   <BrainCircuit className="h-16 w-16 mb-4 opacity-50" />

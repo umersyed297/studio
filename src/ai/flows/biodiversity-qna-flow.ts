@@ -48,6 +48,8 @@ const biodiversityQnAFlow = ai.defineFlow(
   async (input) => {
     const {output} = await prompt(input);
     if (!output) {
+      // This case might happen if the model fails to generate or if there's an issue with the prompt execution.
+      // It can also occur if the model returns an empty output that doesn't match the schema.
       return { answer: "I encountered an issue generating a response or the question might be off-topic according to my guidelines. Please try rephrasing or ask another biodiversity-related question." };
     }
     return output;
