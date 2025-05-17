@@ -24,20 +24,17 @@ export default function QAPage() {
   const [inputValue, setInputValue] = useState('');
   const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const scrollAreaRef = useRef<HTMLDivElement>(null); // Ref for the ScrollArea component (Root)
-  const chatContentRef = useRef<HTMLDivElement>(null); // Ref for the direct content wrapper inside ScrollArea
+  const scrollViewportRef = useRef<HTMLDivElement>(null); // Ref for the ScrollArea's Viewport
+  const chatContentRef = useRef<HTMLDivElement>(null); // Ref for the direct content wrapper
 
   const scrollToBottom = () => {
-    if (scrollAreaRef.current && chatContentRef.current) {
-      const viewport = scrollAreaRef.current.querySelector('div[data-radix-scroll-area-viewport]');
-      if (viewport) {
-        // Scroll the viewport based on the scrollHeight of the inner content div
-        viewport.scrollTop = chatContentRef.current.scrollHeight;
-      }
+    if (scrollViewportRef.current && chatContentRef.current) {
+      scrollViewportRef.current.scrollTop = chatContentRef.current.scrollHeight;
     }
   };
 
   useEffect(() => {
+    // Debounce or use requestAnimationFrame to ensure DOM is updated
     const animationFrameId = requestAnimationFrame(() => {
       scrollToBottom();
     });
@@ -105,13 +102,25 @@ export default function QAPage() {
 
       <Card className="w-full max-w-2xl shadow-xl flex flex-col">
         <CardContent className="p-0 flex flex-col">
+          {/* 
+            The ScrollArea component from Radix UI (used by shadcn/ui)
+            has an internal structure: Root > Viewport > Content.
+            The `ref` for controlling scroll position should ideally be on the Viewport.
+            We can get a ref to the viewport by finding it within the ScrollArea's ref,
+            or by passing a ref to the `Viewport` component if we were composing it manually.
+            Since we are using the composed `ScrollArea`, we will assign the ref to the Root
+            and then querySelector for the viewport for scrolling.
+            The `type="always"` prop forces scrollbar tracks to be visible.
+          */}
           <ScrollArea
             className="min-h-[200px] max-h-[60vh] lg:min-h-[300px] lg:max-h-[65vh]"
-            ref={scrollAreaRef}
+            type="always" // Forces scrollbar tracks to be visible
+            ref={scrollViewportRef} // Technically this ref is on the ScrollArea Root.
+                                 // We will use it to find the viewport for scrolling.
           >
             <div className="p-4 md:p-6 space-y-4" ref={chatContentRef}>
               {chatHistory.length === 0 && !isLoading && (
-                <div className="flex flex-col items-center justify-center h-full text-muted-foreground" style={{minHeight: '150px'}}> {/* Ensure placeholder has some height */}
+                <div className="flex flex-col items-center justify-center h-full text-muted-foreground" style={{minHeight: '150px'}}>
                   <BrainCircuit className="h-16 w-16 mb-4 opacity-50" />
                   <p className="text-center">Ask a question to start the conversation!</p>
                   <p className="text-xs mt-1 text-center">e.g., "What birds are in Margalla Hills?"</p>
