@@ -92,7 +92,7 @@ export default function MapViewPage() {
           {!loading && !error && (
             <MapDisplay observations={observations} googleMapsApiKey={googleMapsApiKey} />
           )}
-           {!googleMapsApiKey && !loading && (
+           {!googleMapsApiKey && !loading && ( // Show this even if there are observations, if key is missing
              <Alert variant="destructive" className="mt-4">
                 <AlertTriangle className="h-4 w-4" />
                 <AlertTitle>Google Maps API Key Missing</AlertTitle>

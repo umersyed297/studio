@@ -2,7 +2,7 @@
 'use client';
 
 import Image from 'next/image';
-import { format } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
@@ -20,8 +20,16 @@ interface ObservationDisplayCardProps {
 }
 
 export function ObservationDisplayCard({ observation }: ObservationDisplayCardProps) {
-  // Parse date string for display
-  const dateObservedFormatted = observation.dateObserved ? format(new Date(observation.dateObserved), 'PPP') : 'N/A';
+  let dateObservedFormatted = 'N/A';
+  try {
+    if (observation.dateObserved) {
+      dateObservedFormatted = format(parseISO(observation.dateObserved), 'PPP');
+    }
+  } catch (e) {
+    console.error("Error parsing dateObserved:", observation.dateObserved, e);
+    // Keep 'N/A' or use the raw string if preferred for invalid dates
+  }
+
 
   return (
     <Card className="flex flex-col h-full shadow-lg hover:shadow-xl transition-shadow duration-300 rounded-lg overflow-hidden">
@@ -38,6 +46,10 @@ export function ObservationDisplayCard({ observation }: ObservationDisplayCardPr
       <CardContent className="flex-grow pt-2 pb-4 space-y-3">
         {observation.imageUrl && ( // imageUrl is now a Data URI
           <div className="aspect-video w-full relative overflow-hidden rounded-md border border-muted">
+            {/* Using a standard img tag for Data URIs can sometimes be more straightforward 
+                if next/image has issues with extremely long data URIs or for simpler error handling.
+                However, next/image should generally handle them.
+            */}
             <Image
               src={observation.imageUrl}
               alt={observation.speciesName || 'Observation image'}
@@ -45,6 +57,7 @@ export function ObservationDisplayCard({ observation }: ObservationDisplayCardPr
               objectFit="cover"
               className="transition-transform duration-300 hover:scale-105"
               data-ai-hint="wildlife nature"
+              unoptimized={observation.imageUrl.startsWith('data:')} // Good practice for data URIs if optimization is not needed/problematic
             />
           </div>
         )}
@@ -54,14 +67,14 @@ export function ObservationDisplayCard({ observation }: ObservationDisplayCardPr
           <span className="text-foreground font-medium">{observation.location}</span>
         </div>
 
-        {observation.notes && (
+        {observation.notes && observation.notes.trim() !== '' && (
           <>
             <Separator />
             <div className="space-y-1">
               <h4 className="text-xs font-semibold text-muted-foreground flex items-center">
                 <FileText className="mr-2 h-4 w-4" /> Notes
               </h4>
-              <p className="text-sm text-foreground bg-secondary/30 p-2 rounded-md leading-relaxed">
+              <p className="text-sm text-foreground bg-secondary/30 p-2 rounded-md leading-relaxed break-words">
                 {observation.notes}
               </p>
             </div>

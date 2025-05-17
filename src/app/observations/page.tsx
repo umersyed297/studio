@@ -3,8 +3,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
-// Removed Firebase imports: import { db } from '@/lib/firebase';
-// Removed Firebase imports: import { collection, onSnapshot, query, orderBy, Timestamp as FirestoreTimestamp } from 'firebase/firestore';
+// Removed Firebase imports
 import type { Observation as ObservationType } from '@/types';
 import { ObservationDisplayCard } from '@/components/observation-display-card';
 import { Input } from '@/components/ui/input';
@@ -38,7 +37,8 @@ export default function ViewObservationsPage() {
       if (storedObservationsRaw) {
         const parsedObservations: ClientObservation[] = JSON.parse(storedObservationsRaw);
         // Sort observations by createdAt date string in descending order
-        parsedObservations.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+        // Note: For more robust date sorting, convert to Date objects, but string sort works for ISO
+        parsedObservations.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
         setObservations(parsedObservations);
       } else {
         setObservations([]); // No observations stored yet
@@ -55,12 +55,15 @@ export default function ViewObservationsPage() {
   const uniqueSpecies = useMemo(() => {
     const speciesSet = new Set<string>();
     observations.forEach((obs) => {
-      if (obs.speciesName) {
-        speciesSet.add(obs.speciesName);
+      if (obs.speciesName && obs.speciesName.trim() !== '') {
+        speciesSet.add(obs.speciesName.trim());
       }
-      obs.aiSuggestedSpecies?.forEach(name => speciesSet.add(name));
+      // Consider also adding AI suggested species to the filter if desired
+      // obs.aiSuggestedSpecies?.forEach(name => {
+      //   if (name && name.trim() !== '') speciesSet.add(name.trim());
+      // });
     });
-    return Array.from(speciesSet).sort();
+    return Array.from(speciesSet).sort((a,b) => a.toLowerCase().localeCompare(b.toLowerCase()));
   }, [observations]);
 
   const filteredObservations = useMemo(() => {
@@ -97,7 +100,7 @@ export default function ViewObservationsPage() {
           View Observations
         </h1>
         <p className="text-muted-foreground mt-2 text-lg">
-          Browse through all submitted biodiversity sightings (stored locally).
+          Browse through all submitted biodiversity sightings (stored locally in your browser).
         </p>
          <div className="mt-4 space-x-2">
             <Button variant="outline" asChild>
@@ -123,6 +126,7 @@ export default function ViewObservationsPage() {
               <Select 
                 value={speciesFilter === '' ? ALL_SPECIES_OPTION_VALUE : speciesFilter} 
                 onValueChange={handleSpeciesFilterChange}
+                disabled={uniqueSpecies.length === 0 && speciesFilter === ''}
               >
                 <SelectTrigger id="speciesFilter" className="w-full">
                   <SelectValue placeholder="All Species" />
@@ -154,7 +158,7 @@ export default function ViewObservationsPage() {
               </div>
             </div>
             <div className="md:col-span-1 flex justify-end">
-                <Button onClick={clearFilters} variant="outline" className="w-full md:w-auto">
+                <Button onClick={clearFilters} variant="outline" className="w-full md:w-auto" disabled={!speciesFilter && !locationSearch}>
                     <FilterX className="mr-2 h-4 w-4" />
                     Clear Filters
                 </Button>

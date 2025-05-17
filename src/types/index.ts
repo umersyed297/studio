@@ -1,5 +1,5 @@
 
-// Remove Firebase Timestamp import: import type { Timestamp } from 'firebase/firestore';
+// Firebase Timestamp import is no longer needed: import type { Timestamp } from 'firebase/firestore';
 
 export interface Observation {
   id: string; // Will be a simple unique ID like timestamp string

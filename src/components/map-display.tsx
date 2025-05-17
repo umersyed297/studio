@@ -3,7 +3,7 @@
 
 import React, { useState, useCallback } from 'react';
 import { GoogleMap, useLoadScript, MarkerF, InfoWindowF } from '@react-google-maps/api';
-import { format } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 import type { Observation as ObservationType } from '@/types';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -21,16 +21,17 @@ interface MapDisplayProps {
   googleMapsApiKey: string | undefined;
 }
 
-const MAP_CENTER_ISLAMABAD = { lat: 33.7379, lng: 73.0844 };
+const MAP_CENTER_ISLAMABAD = { lat: 33.7379, lng: 73.0844 }; // Islamabad, Pakistan
 const DEFAULT_ZOOM = 10;
-const SIMULATION_SPREAD = 0.05; 
+const SIMULATION_SPREAD = 0.05; // Spread for simulated coordinates
 
+// Simple hash function to generate somewhat consistent offsets from a string
 function simpleHash(str: string): number {
   let hash = 0;
   for (let i = 0; i < str.length; i++) {
     const char = str.charCodeAt(i);
     hash = (hash << 5) - hash + char;
-    hash |= 0; 
+    hash |= 0; // Convert to 32bit integer
   }
   return Math.abs(hash);
 }
@@ -40,11 +41,13 @@ interface SimulatedCoordinates {
   lng: number;
 }
 
+// Generates simulated coordinates based on location name
 function getSimulatedCoords(locationName: string): SimulatedCoordinates {
-  const hashLat = simpleHash(locationName + '_lat_v2'); 
-  const hashLng = simpleHash(locationName + '_lng_v2');
+  const hashLat = simpleHash(locationName + '_lat_v2_local'); // Changed seed slightly
+  const hashLng = simpleHash(locationName + '_lng_v2_local'); // Changed seed slightly
 
-  const latOffset = ((hashLat % 2000) / 1000 - 1) * SIMULATION_SPREAD;
+  // Generate pseudo-random offsets within the spread
+  const latOffset = ((hashLat % 2000) / 1000 - 1) * SIMULATION_SPREAD; // Range -SIMULATION_SPREAD to +SIMULATION_SPREAD
   const lngOffset = ((hashLng % 2000) / 1000 - 1) * SIMULATION_SPREAD;
   
   return {
@@ -53,11 +56,12 @@ function getSimulatedCoords(locationName: string): SimulatedCoordinates {
   };
 }
 
+
 const mapContainerStyle = {
   width: '100%',
   height: '70vh',
-  borderRadius: '0.5rem',
-  boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
+  borderRadius: '0.5rem', // Equivalent to rounded-lg
+  boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)', // A light shadow
 };
 
 const libraries: ('places' | 'drawing' | 'geometry' | 'visualization')[] = ['places'];
@@ -66,7 +70,7 @@ export function MapDisplay({ observations, googleMapsApiKey }: MapDisplayProps) 
   const [selectedObservation, setSelectedObservation] = useState<ClientObservation | null>(null);
 
   const { isLoaded, loadError } = useLoadScript({
-    googleMapsApiKey: googleMapsApiKey || '',
+    googleMapsApiKey: googleMapsApiKey || '', // Ensure it's not undefined for useLoadScript
     libraries,
     preventGoogleFontsLoading: true,
   });
@@ -74,6 +78,14 @@ export function MapDisplay({ observations, googleMapsApiKey }: MapDisplayProps) 
   const onMapClick = useCallback(() => {
     setSelectedObservation(null);
   }, []);
+
+  const formatInfoWindowDate = (dateString: string) => {
+    try {
+      return format(parseISO(dateString), 'PPP');
+    } catch (e) {
+      return "Invalid date";
+    }
+  };
 
   if (loadError) {
     return (
@@ -88,15 +100,15 @@ export function MapDisplay({ observations, googleMapsApiKey }: MapDisplayProps) 
     );
   }
 
-  if (!isLoaded || !googleMapsApiKey) {
+  if (!isLoaded || !googleMapsApiKey) { // Check for API key presence here too
     return (
       <div className="space-y-4">
-        {!googleMapsApiKey && (
+        {!googleMapsApiKey && ( // This alert is specifically for the missing key
            <Alert variant="destructive">
             <AlertTriangle className="h-4 w-4" />
             <AlertTitle>Configuration Missing</AlertTitle>
             <AlertDescription>
-              Google Maps API key is not configured. Please set NEXT_PUBLIC_GOOGLE_MAPS_API_KEY.
+              Google Maps API key is not configured. Map cannot be displayed. Please set NEXT_PUBLIC_GOOGLE_MAPS_API_KEY in your .env.local file.
             </AlertDescription>
           </Alert>
         )}
@@ -144,7 +156,7 @@ export function MapDisplay({ observations, googleMapsApiKey }: MapDisplayProps) 
               Location: {selectedObservation.location}
             </p>
             <p className="text-xs text-muted-foreground">
-              Observed: {format(new Date(selectedObservation.dateObserved), 'PPP')} {/* Parse date string */}
+              Observed: {formatInfoWindowDate(selectedObservation.dateObserved)}
             </p>
             {selectedObservation.imageUrl && ( // imageUrl is Data URI
                <img 

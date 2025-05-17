@@ -40,23 +40,28 @@ export default function ObservationForm() {
       location: '',
       notes: '',
       dateObserved: undefined, // Default to undefined
+      imageFile: undefined,
     },
   });
 
   const handleImageChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
-      const validation = observationFormSchema.shape.imageFile.safeParse(event.target.files);
-      if (!validation.success) {
-        form.setError("imageFile", { type: "manual", message: validation.error.errors[0].message });
-        setImagePreview(null);
-        setImageDataUri(null);
-        setAiSuggestions([]);
-        setAiError(null);
+      // Zod schema validation handles files, so direct validation here can be simplified or rely on RHF.
+      // Forcing re-validation if a file is selected.
+      form.setValue('imageFile', event.target.files, { shouldValidate: true });
+
+      const validation = await form.trigger("imageFile"); // Await validation
+      if (!validation) {
+         setImagePreview(null);
+         setImageDataUri(null);
+         setAiSuggestions([]);
+         setAiError(null);
+        // Error message will be shown by RHF FormMessage
         return;
       }
       
-      form.clearErrors("imageFile");
+      form.clearErrors("imageFile"); // Clear errors if validation passes
 
       const reader = new FileReader();
       reader.onloadend = () => {
@@ -88,27 +93,32 @@ export default function ObservationForm() {
       setImageDataUri(null);
       setAiSuggestions([]);
       setAiError(null);
+      form.resetField("imageFile"); // Reset if no file is chosen
     }
   };
   
+  // useEffect to trigger validation when imageFile field changes, which might happen programmatically.
   useEffect(() => {
-    if (form.getValues("imageFile")) {
+    if (form.formState.dirtyFields.imageFile) {
       form.trigger("imageFile");
     }
-  }, [imagePreview, form]);
+  }, [form.watch('imageFile'), form.trigger, form.formState.dirtyFields.imageFile]);
+
 
   const onSubmit: SubmitHandler<ObservationFormValues> = async (data) => {
     if (!imageDataUri) {
+      // This check might be redundant if schema validation is robust.
+      // form.setError("imageFile", {type: "manual", message: "Image is required for submission."});
       toast({
-        title: 'Error',
-        description: 'Please select an image.',
+        title: 'Image Required',
+        description: 'Please select an image for your observation.',
         variant: 'destructive',
       });
       return;
     }
 
     const newObservation: Observation = {
-      id: Date.now().toString(), // Simple unique ID
+      id: Date.now().toString() + Math.random().toString(36).substring(2, 15), // More unique ID
       speciesName: data.speciesName,
       dateObserved: data.dateObserved.toISOString(), // Store as ISO string
       location: data.location,
@@ -123,7 +133,7 @@ export default function ObservationForm() {
       const existingObservations: Observation[] = existingObservationsRaw ? JSON.parse(existingObservationsRaw) : [];
       
       // Add new observation and ensure it's an array
-      const updatedObservations = [...existingObservations, newObservation];
+      const updatedObservations = [newObservation, ...existingObservations]; // Prepend new observation
       
       localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(updatedObservations));
 
@@ -132,27 +142,31 @@ export default function ObservationForm() {
         description: 'Observation saved locally!',
         variant: 'default',
       });
-      form.reset({ // Reset form with default values for date
+      form.reset({ 
         speciesName: '',
         location: '',
         notes: '',
-        dateObserved: undefined, // Reset date to undefined
+        dateObserved: undefined, 
         imageFile: undefined,
       });
       setImagePreview(null);
       setImageDataUri(null);
       setAiSuggestions([]);
       setAiError(null);
-      // Manually clear file input if possible (browser security often prevents this)
-      const fileInput = document.getElementById('imageFile') as HTMLInputElement | null;
+      
+      const fileInput = document.getElementById('imageFile-input') as HTMLInputElement | null; // Use new ID
       if (fileInput) {
         fileInput.value = '';
       }
     } catch (error) {
       console.error('Error saving observation to local storage:', error);
+      let message = 'Failed to save observation locally. Check browser console.';
+      if (error instanceof DOMException && error.name === 'QuotaExceededError') {
+        message = 'Local storage limit reached. Could not save observation. Please clear some space.';
+      }
       toast({
         title: 'Error',
-        description: 'Failed to save observation locally. Check browser console.',
+        description: message,
         variant: 'destructive',
       });
     }
@@ -165,7 +179,7 @@ export default function ObservationForm() {
           <Leaf className="mr-2 h-6 w-6 text-primary" />
           Submit Observation
         </CardTitle>
-        <CardDescription>Fill in the details of your nature sighting.</CardDescription>
+        <CardDescription>Fill in the details of your nature sighting. Data is saved locally in your browser.</CardDescription>
       </CardHeader>
       <CardContent>
         <Form {...form}>
@@ -189,12 +203,12 @@ export default function ObservationForm() {
               name="dateObserved"
               render={({ field }) => (
                 <FormItem className="flex flex-col">
-                  <FormLabel htmlFor="dateObserved">Date Observed</FormLabel>
+                  <FormLabel htmlFor="dateObserved-input">Date Observed</FormLabel>
                   <Popover>
                     <PopoverTrigger asChild>
                       <FormControl>
                         <Button
-                          id="dateObserved"
+                          id="dateObserved-input"
                           variant="outline"
                           className={cn(
                             "w-full justify-start text-left font-normal",
@@ -226,10 +240,10 @@ export default function ObservationForm() {
               name="location"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel htmlFor="location">Location</FormLabel>
+                  <FormLabel htmlFor="location-input">Location</FormLabel>
                   <div className="relative">
                     <FormControl>
-                      <Input id="location" placeholder="e.g., Margalla Hills" {...field} className="pl-10" />
+                      <Input id="location-input" placeholder="e.g., Margalla Hills" {...field} className="pl-10" />
                     </FormControl>
                     <MapPin className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                   </div>
@@ -241,20 +255,24 @@ export default function ObservationForm() {
             <FormField
               control={form.control}
               name="imageFile"
-              render={({ field: { onChange, value, ...restField }}) => (
+              render={({ field: { onChange, value, ...restField }}) => ( // value is FileList here
                 <FormItem>
-                  <FormLabel htmlFor="imageFile">Upload Image</FormLabel>
+                  <FormLabel htmlFor="imageFile-input">Upload Image</FormLabel>
                   <div className="relative">
                      <FormControl>
                         <Input 
-                          id="imageFile" 
+                          id="imageFile-input" // Unique ID for label association
                           type="file" 
                           accept="image/png, image/jpeg, image/webp" 
                           onChange={(e) => {
-                            onChange(e.target.files); 
+                            onChange(e.target.files);  // RHF expects FileList
                             handleImageChange(e); 
                           }}
-                          {...restField} 
+                          // {...restField} // 'value' from RHF for file input is not typically controlled directly after selection
+                          // so we don't spread `value` here.
+                          ref={restField.ref} // Pass ref
+                          name={restField.name} // Pass name
+                          onBlur={restField.onBlur} // Pass onBlur
                           className="pl-10 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20"
                         />
                       </FormControl>
@@ -269,7 +287,7 @@ export default function ObservationForm() {
               <div className="mt-4">
                 <Label>Image Preview:</Label>
                 <div className="mt-2 aspect-video w-full overflow-hidden rounded-md border border-muted">
-                  <Image src={imagePreview} alt="Image preview" width={600} height={400} className="object-cover w-full h-full" data-ai-hint="nature wildlife"/>
+                  <Image src={imagePreview} alt="Image preview" width={600} height={338} className="object-cover w-full h-full" data-ai-hint="nature wildlife"/>
                 </div>
               </div>
             )}
@@ -299,6 +317,11 @@ export default function ObservationForm() {
                     ))}
                   </ul>
                 )}
+                {!aiLoading && !aiError && aiSuggestions.length === 0 && !aiLoading && imagePreview && (
+                   <div className="mt-2 flex items-center text-muted-foreground">
+                    <span>No specific AI suggestions, or AI could not identify.</span>
+                  </div>
+                )}
               </div>
             )}
 
@@ -307,11 +330,11 @@ export default function ObservationForm() {
               name="notes"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel htmlFor="notes">Notes (Optional)</FormLabel>
+                  <FormLabel htmlFor="notes-input">Notes (Optional)</FormLabel>
                    <div className="relative">
                     <FormControl>
                       <Textarea
-                        id="notes"
+                        id="notes-input"
                         placeholder="Any observations about behavior, habitat, etc."
                         {...field}
                         className="pl-10 min-h-[100px]"
@@ -326,13 +349,13 @@ export default function ObservationForm() {
             
             <CardFooter className="p-0 pt-4">
               <Button type="submit" className="w-full" disabled={form.formState.isSubmitting || aiLoading}>
-                {form.formState.isSubmitting || aiLoading ? (
+                {(form.formState.isSubmitting || aiLoading) ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                     Processing...
                   </>
                 ) : (
-                  'Submit Observation'
+                  'Submit Observation (Save Locally)'
                 )}
               </Button>
             </CardFooter>
