@@ -7,49 +7,18 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Home, Bot, User, Send, BrainCircuit, MessagesSquare } from 'lucide-react';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Home, Bot, User, Send, BrainCircuit, MessagesSquare, AlertTriangle, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { askBiodiversityQuestion, type BiodiversityQnAInput } from '@/ai/flows/biodiversity-qna-flow';
 
 interface ChatMessage {
   id: string;
   sender: 'user' | 'ai';
   text: string;
   timestamp: Date;
+  error?: boolean;
 }
-
-const mockKnowledgeBase = [
-  {
-    id: 'birds_margalla',
-    keywords: ['bird', 'birds', 'margalla', 'hills', 'avian', 'flycatcher', 'francolin', 'woodpecker'],
-    answer: 'Margalla Hills National Park is rich in avian biodiversity! Common sightings include the Paradise Flycatcher, Black Francolin, various species of woodpeckers, and raptors. The specific birds can vary by season, with migratory birds appearing in winter.'
-  },
-  {
-    id: 'plants_islamabad',
-    keywords: ['plant', 'plants', 'trees', 'flowers', 'islamabad', 'flora', 'jacaranda', 'gulmohar'],
-    answer: 'Islamabad and its surrounding areas feature a mix of native and cultivated plants. You can find beautiful flowering trees like Jacaranda and Gulmohar, as well as native shrubs and grasses adapted to the Potohar plateau ecosystem like Phulai (Acacia modesta) and Kao (Olea ferruginea).'
-  },
-  {
-    id: 'rawal_lake_wildlife',
-    keywords: ['rawal', 'lake', 'wildlife', 'animal', 'animals', 'fish', 'mammal'],
-    answer: 'Rawal Lake and its surroundings support various forms of wildlife. It\'s a key spot for migratory waterfowl in winter. Besides birds, common fish include Rohu and Catla. You might also spot small mammals like foxes or mongoose in the peripheral areas.'
-  },
-  {
-    id: 'conservation_efforts_pakistan',
-    keywords: ['conservation', 'protect', 'efforts', 'save', 'biodiversity', 'pakistan', 'ngo'],
-    answer: 'Several local and national organizations in Pakistan, like WWF-Pakistan and the Himalayan Wildlife Foundation, work on biodiversity conservation. Efforts include habitat restoration, anti-poaching initiatives, research, and community awareness programs focusing on endangered species and critical ecosystems.'
-  },
-  {
-    id: 'biodiversity_importance',
-    keywords: ['biodiversity', 'important', 'why', 'value', 'ecosystem', 'benefit'],
-    answer: 'Biodiversity is crucial for healthy ecosystems and human well-being. It provides essential services like pollination for crops, clean air and water, soil fertility, and climate regulation. It also holds immense cultural, recreational, and aesthetic value.'
-  }
-];
-
-const biodiversityKeywords = ['bird', 'plant', 'animal', 'species', 'nature', 'biodiversity', 'wildlife', 'insect', 'tree', 'flower', 'margalla', 'rawal', 'lake', 'ecosystem', 'habitat', 'conservation', 'flora', 'fauna', 'environment', 'national park', 'forest'];
-const offTopicResponse = "I'm programmed to assist with biodiversity-related questions in Islamabad and surrounding areas. Could you please ask something on that topic?";
-const genericBiodiversityResponse = "That's an interesting question about biodiversity! While I don't have specific information on that exact topic from my current knowledge, Islamabad and its surroundings have a diverse range of flora and fauna. You can often find more detailed information from local wildlife NGOs, park authorities, or research institutions.";
-
 
 export default function QAPage() {
   const [inputValue, setInputValue] = useState('');
@@ -59,9 +28,10 @@ export default function QAPage() {
 
   const scrollToBottom = () => {
     if (scrollAreaRef.current) {
-      const scrollableView = scrollAreaRef.current.querySelector('div > div'); // Target the viewport div
-      if (scrollableView) {
-        scrollableView.scrollTop = scrollableView.scrollHeight;
+      // The direct child of ScrollArea is the Viewport
+      const viewport = scrollAreaRef.current.querySelector('div[data-radix-scroll-area-viewport]');
+      if (viewport) {
+        viewport.scrollTop = viewport.scrollHeight;
       }
     }
   };
@@ -70,65 +40,43 @@ export default function QAPage() {
     scrollToBottom();
   }, [chatHistory]);
 
-  const isQuestionBiodiversityRelated = (question: string): boolean => {
-    const lowerCaseQuestion = question.toLowerCase();
-    return biodiversityKeywords.some(keyword => lowerCaseQuestion.includes(keyword));
-  };
-
-  const getAIResponse = (question: string): string => {
-    const lowerCaseQuestion = question.toLowerCase();
-    let bestMatch: { id: string; score: number; answer: string } | null = null;
-
-    for (const entry of mockKnowledgeBase) {
-      let currentScore = 0;
-      for (const keyword of entry.keywords) {
-        if (lowerCaseQuestion.includes(keyword.toLowerCase())) {
-          currentScore++;
-        }
-      }
-      if (currentScore > 0 && (!bestMatch || currentScore > bestMatch.score)) {
-        bestMatch = { id: entry.id, score: currentScore, answer: entry.answer };
-      }
-    }
-
-    if (bestMatch) {
-      return bestMatch.answer;
-    }
-    return genericBiodiversityResponse;
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!inputValue.trim()) return;
 
+    const userMessageText = inputValue;
     const userMessage: ChatMessage = {
       id: Date.now().toString() + 'user',
       sender: 'user',
-      text: inputValue,
+      text: userMessageText,
       timestamp: new Date(),
     };
     setChatHistory(prev => [...prev, userMessage]);
     setInputValue('');
     setIsLoading(true);
 
-    // Simulate AI thinking time
-    await new Promise(resolve => setTimeout(resolve, 700));
-
-    let aiTextResponse: string;
-    if (!isQuestionBiodiversityRelated(userMessage.text)) {
-      aiTextResponse = offTopicResponse;
-    } else {
-      aiTextResponse = getAIResponse(userMessage.text);
+    try {
+      const aiResponse = await askBiodiversityQuestion({ question: userMessageText });
+      const aiMessage: ChatMessage = {
+        id: Date.now().toString() + 'ai',
+        sender: 'ai',
+        text: aiResponse.answer,
+        timestamp: new Date(),
+      };
+      setChatHistory(prev => [...prev, aiMessage]);
+    } catch (error) {
+      console.error("Error fetching AI response:", error);
+      const errorMessage: ChatMessage = {
+        id: Date.now().toString() + 'ai_error',
+        sender: 'ai',
+        text: "Sorry, I couldn't get a response right now. Please try again later.",
+        timestamp: new Date(),
+        error: true,
+      };
+      setChatHistory(prev => [...prev, errorMessage]);
+    } finally {
+      setIsLoading(false);
     }
-
-    const aiMessage: ChatMessage = {
-      id: Date.now().toString() + 'ai',
-      sender: 'ai',
-      text: aiTextResponse,
-      timestamp: new Date(),
-    };
-    setChatHistory(prev => [...prev, aiMessage]);
-    setIsLoading(false);
   };
 
   return (
@@ -139,7 +87,7 @@ export default function QAPage() {
           Ask About Biodiversity
         </h1>
         <p className="text-muted-foreground mt-2 text-lg">
-          Get answers to your questions about wildlife and nature in Islamabad and nearby areas.
+          Chat with an AI about wildlife, plants, and ecosystems.
         </p>
         <div className="mt-6">
           <Button asChild variant="outline">
@@ -154,7 +102,7 @@ export default function QAPage() {
       <Card className="w-full max-w-2xl shadow-xl flex flex-col h-[70vh]">
         <CardContent className="p-0 flex-grow flex flex-col">
           <ScrollArea className="flex-grow p-4 md:p-6 space-y-4" ref={scrollAreaRef}>
-            {chatHistory.length === 0 && (
+            {chatHistory.length === 0 && !isLoading && (
               <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
                 <BrainCircuit className="h-16 w-16 mb-4 opacity-50" />
                 <p className="text-center">Ask a question to start the conversation!</p>
@@ -171,8 +119,11 @@ export default function QAPage() {
               >
                 {msg.sender === 'ai' && (
                   <Avatar className="h-8 w-8 self-start">
-                    <AvatarFallback className="bg-primary text-primary-foreground">
-                      <Bot size={20} />
+                    <AvatarFallback className={cn(
+                      "bg-primary text-primary-foreground",
+                      msg.error && "bg-destructive text-destructive-foreground"
+                    )}>
+                      {msg.error ? <AlertTriangle size={20}/> : <Bot size={20} />}
                     </AvatarFallback>
                   </Avatar>
                 )}
@@ -181,7 +132,9 @@ export default function QAPage() {
                     'max-w-[70%] rounded-lg px-3 py-2 shadow-md text-sm md:text-base break-words',
                     msg.sender === 'user'
                       ? 'bg-primary text-primary-foreground rounded-br-none'
-                      : 'bg-card text-card-foreground rounded-bl-none border'
+                      : msg.error
+                        ? 'bg-destructive/20 text-destructive-foreground border border-destructive rounded-bl-none'
+                        : 'bg-card text-card-foreground rounded-bl-none border'
                   )}
                 >
                   <p>{msg.text}</p>
@@ -201,7 +154,7 @@ export default function QAPage() {
                 )}
               </div>
             ))}
-            {isLoading && (
+            {isLoading && chatHistory[chatHistory.length-1]?.sender === 'user' && ( // Show loading only if last message was user
               <div className="flex items-end space-x-2 justify-start my-3">
                 <Avatar className="h-8 w-8 self-start">
                    <AvatarFallback className="bg-primary text-primary-foreground">
@@ -231,10 +184,7 @@ export default function QAPage() {
               />
               <Button type="submit" size="icon" disabled={isLoading || !inputValue.trim()}>
                 {isLoading ? (
-                   <svg className="animate-spin h-5 w-5 text-primary-foreground" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                  </svg>
+                   <Loader2 className="h-5 w-5 animate-spin" />
                 ) : (
                   <Send size={20} />
                 )}
@@ -247,5 +197,3 @@ export default function QAPage() {
     </main>
   );
 }
-
-    
