@@ -21,6 +21,8 @@ interface ClientObservation extends Omit<ObservationType, 'dateObserved' | 'crea
   createdAt: Date;
 }
 
+const ALL_SPECIES_OPTION_VALUE = "__ALL_SPECIES_PLACEHOLDER__";
+
 export default function ViewObservationsPage() {
   const [observations, setObservations] = useState<ClientObservation[]>([]);
   const [loading, setLoading] = useState(true);
@@ -73,7 +75,7 @@ export default function ViewObservationsPage() {
   const filteredObservations = useMemo(() => {
     return observations.filter((obs) => {
       const speciesMatch =
-        !speciesFilter ||
+        !speciesFilter || // This correctly handles speciesFilter === '' for "All Species"
         obs.speciesName?.toLowerCase() === speciesFilter.toLowerCase() ||
         obs.aiSuggestedSpecies?.some(s => s.toLowerCase() === speciesFilter.toLowerCase());
       const locationMatch =
@@ -82,6 +84,14 @@ export default function ViewObservationsPage() {
       return speciesMatch && locationMatch;
     });
   }, [observations, speciesFilter, locationSearch]);
+
+  const handleSpeciesFilterChange = (value: string) => {
+    if (value === ALL_SPECIES_OPTION_VALUE) {
+      setSpeciesFilter('');
+    } else {
+      setSpeciesFilter(value);
+    }
+  };
 
   const clearFilters = () => {
     setSpeciesFilter('');
@@ -112,12 +122,15 @@ export default function ViewObservationsPage() {
               <label htmlFor="speciesFilter" className="block text-sm font-medium text-foreground mb-1">
                 Filter by Species
               </label>
-              <Select value={speciesFilter} onValueChange={setSpeciesFilter}>
+              <Select 
+                value={speciesFilter === '' ? ALL_SPECIES_OPTION_VALUE : speciesFilter} 
+                onValueChange={handleSpeciesFilterChange}
+              >
                 <SelectTrigger id="speciesFilter" className="w-full">
                   <SelectValue placeholder="All Species" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">All Species</SelectItem>
+                  <SelectItem value={ALL_SPECIES_OPTION_VALUE}>All Species</SelectItem>
                   {uniqueSpecies.map((species) => (
                     <SelectItem key={species} value={species}>
                       {species}
@@ -192,3 +205,4 @@ export default function ViewObservationsPage() {
     </main>
   );
 }
+
