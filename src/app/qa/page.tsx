@@ -99,9 +99,15 @@ export default function QAPage() {
         </div>
       </header>
 
-      <Card className="w-full max-w-2xl shadow-xl flex flex-col h-[70vh]">
-        <CardContent className="p-0 flex-grow flex flex-col">
-          <ScrollArea className="flex-grow p-4 md:p-6 space-y-4" ref={scrollAreaRef}>
+      {/* Card's height is now content-driven */}
+      <Card className="w-full max-w-2xl shadow-xl flex flex-col">
+        {/* CardContent's height is sum of ScrollArea and Input Div */}
+        <CardContent className="p-0 flex flex-col">
+          {/* ScrollArea will have min/max height and scroll internally when max is reached */}
+          <ScrollArea
+            className="p-4 md:p-6 space-y-4 min-h-[200px] max-h-[60vh] lg:min-h-[300px] lg:max-h-[65vh]"
+            ref={scrollAreaRef}
+          >
             {chatHistory.length === 0 && !isLoading && (
               <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
                 <BrainCircuit className="h-16 w-16 mb-4 opacity-50" />
@@ -154,7 +160,7 @@ export default function QAPage() {
                 )}
               </div>
             ))}
-            {isLoading && chatHistory[chatHistory.length-1]?.sender === 'user' && ( // Show loading only if last message was user
+            {isLoading && chatHistory[chatHistory.length-1]?.sender === 'user' && (
               <div className="flex items-end space-x-2 justify-start my-3">
                 <Avatar className="h-8 w-8 self-start">
                    <AvatarFallback className="bg-primary text-primary-foreground">
@@ -171,6 +177,7 @@ export default function QAPage() {
               </div>
             )}
           </ScrollArea>
+          {/* Input area at the bottom of CardContent */}
           <div className="p-4 border-t">
             <form onSubmit={handleSubmit} className="flex items-center space-x-2">
               <Input
