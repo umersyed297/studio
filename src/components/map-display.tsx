@@ -7,13 +7,13 @@ import { format } from 'date-fns';
 import type { Observation as ObservationType } from '@/types';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { AlertTriangle, MapPinned } from 'lucide-react';
+import { AlertTriangle } from 'lucide-react';
 
-// Client-side Observation type where Timestamps are Dates
+// Client-side Observation type where dates are strings
 interface ClientObservation extends Omit<ObservationType, 'dateObserved' | 'createdAt'> {
   id: string;
-  dateObserved: Date;
-  createdAt: Date;
+  dateObserved: string; // ISO string
+  createdAt: string;    // ISO string
 }
 
 interface MapDisplayProps {
@@ -23,17 +23,16 @@ interface MapDisplayProps {
 
 const MAP_CENTER_ISLAMABAD = { lat: 33.7379, lng: 73.0844 };
 const DEFAULT_ZOOM = 10;
-const SIMULATION_SPREAD = 0.05; // Defines how far apart simulated pins can be
+const SIMULATION_SPREAD = 0.05; 
 
-// Simple hash function for string to number for deterministic "randomness"
 function simpleHash(str: string): number {
   let hash = 0;
   for (let i = 0; i < str.length; i++) {
     const char = str.charCodeAt(i);
     hash = (hash << 5) - hash + char;
-    hash |= 0; // Convert to 32bit integer
+    hash |= 0; 
   }
-  return Math.abs(hash); // Ensure positive for modulo
+  return Math.abs(hash);
 }
 
 interface SimulatedCoordinates {
@@ -41,12 +40,10 @@ interface SimulatedCoordinates {
   lng: number;
 }
 
-// Generates deterministic, simulated coordinates based on location string
 function getSimulatedCoords(locationName: string): SimulatedCoordinates {
-  const hashLat = simpleHash(locationName + '_lat_v2'); // Added v2 to re-seed if needed
+  const hashLat = simpleHash(locationName + '_lat_v2'); 
   const hashLng = simpleHash(locationName + '_lng_v2');
 
-  // Normalize hash to be between -1 and 1, then scale by SIMULATION_SPREAD
   const latOffset = ((hashLat % 2000) / 1000 - 1) * SIMULATION_SPREAD;
   const lngOffset = ((hashLng % 2000) / 1000 - 1) * SIMULATION_SPREAD;
   
@@ -58,7 +55,7 @@ function getSimulatedCoords(locationName: string): SimulatedCoordinates {
 
 const mapContainerStyle = {
   width: '100%',
-  height: '70vh', // Adjust as needed
+  height: '70vh',
   borderRadius: '0.5rem',
   boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
 };
@@ -71,7 +68,7 @@ export function MapDisplay({ observations, googleMapsApiKey }: MapDisplayProps) 
   const { isLoaded, loadError } = useLoadScript({
     googleMapsApiKey: googleMapsApiKey || '',
     libraries,
-    preventGoogleFontsLoading: true, // Optional: if you handle fonts elsewhere
+    preventGoogleFontsLoading: true,
   });
 
   const onMapClick = useCallback(() => {
@@ -147,9 +144,9 @@ export function MapDisplay({ observations, googleMapsApiKey }: MapDisplayProps) 
               Location: {selectedObservation.location}
             </p>
             <p className="text-xs text-muted-foreground">
-              Observed: {format(selectedObservation.dateObserved, 'PPP')}
+              Observed: {format(new Date(selectedObservation.dateObserved), 'PPP')} {/* Parse date string */}
             </p>
-            {selectedObservation.imageUrl && (
+            {selectedObservation.imageUrl && ( // imageUrl is Data URI
                <img 
                 src={selectedObservation.imageUrl} 
                 alt={selectedObservation.speciesName || "Observation"} 

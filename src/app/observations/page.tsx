@@ -3,8 +3,8 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
-import { db } from '@/lib/firebase';
-import { collection, onSnapshot, query, orderBy, Timestamp as FirestoreTimestamp } from 'firebase/firestore';
+// Removed Firebase imports: import { db } from '@/lib/firebase';
+// Removed Firebase imports: import { collection, onSnapshot, query, orderBy, Timestamp as FirestoreTimestamp } from 'firebase/firestore';
 import type { Observation as ObservationType } from '@/types';
 import { ObservationDisplayCard } from '@/components/observation-display-card';
 import { Input } from '@/components/ui/input';
@@ -12,16 +12,17 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Home, ListChecks, Search, FilterX, MapIcon } from 'lucide-react';
+import { Home, ListChecks, Search, FilterX, MapIcon, AlertTriangle } from 'lucide-react';
 
-// Define a client-side Observation type where Timestamps are Dates
+// Client-side Observation type where dates are strings (ISO format from Local Storage)
 interface ClientObservation extends Omit<ObservationType, 'dateObserved' | 'createdAt'> {
   id: string;
-  dateObserved: Date;
-  createdAt: Date;
+  dateObserved: string; // Will be ISO string
+  createdAt: string;    // Will be ISO string
 }
 
 const ALL_SPECIES_OPTION_VALUE = "__ALL_SPECIES_PLACEHOLDER__";
+const LOCAL_STORAGE_KEY = 'observations';
 
 export default function ViewObservationsPage() {
   const [observations, setObservations] = useState<ClientObservation[]>([]);
@@ -32,33 +33,23 @@ export default function ViewObservationsPage() {
 
   useEffect(() => {
     setLoading(true);
-    const q = query(collection(db, 'observations'), orderBy('createdAt', 'desc'));
-
-    const unsubscribe = onSnapshot(
-      q,
-      (querySnapshot) => {
-        const fetchedObservations: ClientObservation[] = [];
-        querySnapshot.forEach((doc) => {
-          const data = doc.data() as ObservationType;
-          fetchedObservations.push({
-            ...data,
-            id: doc.id,
-            dateObserved: (data.dateObserved as unknown as FirestoreTimestamp).toDate(),
-            createdAt: (data.createdAt as unknown as FirestoreTimestamp).toDate(),
-          });
-        });
-        setObservations(fetchedObservations);
-        setError(null);
-        setLoading(false);
-      },
-      (err) => {
-        console.error('Error fetching observations:', err);
-        setError('Failed to fetch observations. Please try again later.');
-        setLoading(false);
+    try {
+      const storedObservationsRaw = localStorage.getItem(LOCAL_STORAGE_KEY);
+      if (storedObservationsRaw) {
+        const parsedObservations: ClientObservation[] = JSON.parse(storedObservationsRaw);
+        // Sort observations by createdAt date string in descending order
+        parsedObservations.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+        setObservations(parsedObservations);
+      } else {
+        setObservations([]); // No observations stored yet
       }
-    );
-
-    return () => unsubscribe();
+      setError(null);
+    } catch (e) {
+      console.error('Error fetching observations from local storage:', e);
+      setError('Failed to load observations from local storage. Data might be corrupted.');
+      setObservations([]);
+    }
+    setLoading(false);
   }, []);
 
   const uniqueSpecies = useMemo(() => {
@@ -75,7 +66,7 @@ export default function ViewObservationsPage() {
   const filteredObservations = useMemo(() => {
     return observations.filter((obs) => {
       const speciesMatch =
-        !speciesFilter || // This correctly handles speciesFilter === '' for "All Species"
+        !speciesFilter || 
         obs.speciesName?.toLowerCase() === speciesFilter.toLowerCase() ||
         obs.aiSuggestedSpecies?.some(s => s.toLowerCase() === speciesFilter.toLowerCase());
       const locationMatch =
@@ -106,7 +97,7 @@ export default function ViewObservationsPage() {
           View Observations
         </h1>
         <p className="text-muted-foreground mt-2 text-lg">
-          Browse through all submitted biodiversity sightings.
+          Browse through all submitted biodiversity sightings (stored locally).
         </p>
          <div className="mt-4 space-x-2">
             <Button variant="outline" asChild>
@@ -189,9 +180,11 @@ export default function ViewObservationsPage() {
       )}
 
       {!loading && error && (
-        <div className="text-center py-10">
-          <p className="text-destructive text-lg">{error}</p>
-        </div>
+         <div className="text-center py-10 bg-destructive/10 p-6 rounded-md">
+            <AlertTriangle className="mx-auto h-12 w-12 text-destructive mb-4" />
+            <p className="text-destructive text-lg font-semibold">Error Loading Data</p>
+            <p className="text-destructive/80">{error}</p>
+          </div>
       )}
 
       {!loading && !error && filteredObservations.length === 0 && (

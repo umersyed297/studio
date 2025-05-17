@@ -6,20 +6,23 @@ import { format } from 'date-fns';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import type { Observation as ObservationType } from '@/types'; // Original type
-import { Leaf, CalendarDays, MapPin, FileText, Wand2, Tags } from 'lucide-react';
+import type { Observation as ObservationType } from '@/types'; 
+import { Leaf, CalendarDays, MapPin, FileText, Wand2 } from 'lucide-react';
 
-// Define a client-side Observation type where Timestamps are Dates
+// ClientObservation matches the structure in Local Storage (dates as strings)
 interface ClientObservation extends Omit<ObservationType, 'dateObserved' | 'createdAt'> {
   id: string;
-  dateObserved: Date;
-  createdAt: Date;
+  dateObserved: string; // ISO string
+  createdAt: string;    // ISO string
 }
 interface ObservationDisplayCardProps {
   observation: ClientObservation;
 }
 
 export function ObservationDisplayCard({ observation }: ObservationDisplayCardProps) {
+  // Parse date string for display
+  const dateObservedFormatted = observation.dateObserved ? format(new Date(observation.dateObserved), 'PPP') : 'N/A';
+
   return (
     <Card className="flex flex-col h-full shadow-lg hover:shadow-xl transition-shadow duration-300 rounded-lg overflow-hidden">
       <CardHeader className="pb-2">
@@ -29,11 +32,11 @@ export function ObservationDisplayCard({ observation }: ObservationDisplayCardPr
         </CardTitle>
         <CardDescription className="flex items-center text-sm">
           <CalendarDays className="mr-2 h-4 w-4" />
-          Observed on: {format(observation.dateObserved, 'PPP')}
+          Observed on: {dateObservedFormatted}
         </CardDescription>
       </CardHeader>
       <CardContent className="flex-grow pt-2 pb-4 space-y-3">
-        {observation.imageUrl && (
+        {observation.imageUrl && ( // imageUrl is now a Data URI
           <div className="aspect-video w-full relative overflow-hidden rounded-md border border-muted">
             <Image
               src={observation.imageUrl}

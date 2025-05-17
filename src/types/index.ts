@@ -1,12 +1,13 @@
-import type { Timestamp } from 'firebase/firestore';
+
+// Remove Firebase Timestamp import: import type { Timestamp } from 'firebase/firestore';
 
 export interface Observation {
-  id?: string;
+  id: string; // Will be a simple unique ID like timestamp string
   speciesName?: string;
-  dateObserved: Timestamp; // Stored as Timestamp in Firestore
+  dateObserved: string; // Store as ISO string
   location: string;
-  imageUrl: string;
+  imageUrl: string; // Will store image as Data URI
   notes?: string;
   aiSuggestedSpecies: string[];
-  createdAt: Timestamp;
+  createdAt: string; // Store as ISO string
 }

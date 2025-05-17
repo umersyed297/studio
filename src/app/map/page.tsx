@@ -3,21 +3,23 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { db } from '@/lib/firebase';
-import { collection, onSnapshot, query, orderBy, Timestamp as FirestoreTimestamp } from 'firebase/firestore';
+// Removed Firebase imports
 import type { Observation as ObservationType } from '@/types';
 import { MapDisplay } from '@/components/map-display';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Home, ListChecks, MapIcon, AlertTriangle } from 'lucide-react';
 
-// Define a client-side Observation type where Timestamps are Dates
+// Client-side Observation type where dates are strings (ISO format from Local Storage)
 interface ClientObservation extends Omit<ObservationType, 'dateObserved' | 'createdAt'> {
   id: string;
-  dateObserved: Date;
-  createdAt: Date;
+  dateObserved: string; // Will be ISO string
+  createdAt: string;    // Will be ISO string
 }
+
+const LOCAL_STORAGE_KEY = 'observations';
 
 export default function MapViewPage() {
   const [observations, setObservations] = useState<ClientObservation[]>([]);
@@ -28,41 +30,22 @@ export default function MapViewPage() {
 
   useEffect(() => {
     setLoading(true);
-    const q = query(collection(db, 'observations'), orderBy('createdAt', 'desc'));
-
-    const unsubscribe = onSnapshot(
-      q,
-      (querySnapshot) => {
-        const fetchedObservations: ClientObservation[] = [];
-        querySnapshot.forEach((doc) => {
-          const data = doc.data() as ObservationType;
-          // Ensure data.dateObserved and data.createdAt are Timestamps before calling toDate
-          const dateObserved = data.dateObserved instanceof FirestoreTimestamp 
-                               ? data.dateObserved.toDate() 
-                               : new Date(data.dateObserved as any); // Fallback, might need adjustment if data is not proper Timestamp
-          const createdAt = data.createdAt instanceof FirestoreTimestamp 
-                            ? data.createdAt.toDate() 
-                            : new Date(data.createdAt as any); // Fallback
-
-          fetchedObservations.push({
-            ...data,
-            id: doc.id,
-            dateObserved,
-            createdAt,
-          });
-        });
-        setObservations(fetchedObservations);
-        setError(null);
-        setLoading(false);
-      },
-      (err) => {
-        console.error('Error fetching observations for map:', err);
-        setError('Failed to fetch observation data for the map. Please try again later.');
-        setLoading(false);
+    try {
+      const storedObservationsRaw = localStorage.getItem(LOCAL_STORAGE_KEY);
+      if (storedObservationsRaw) {
+        const parsedObservations: ClientObservation[] = JSON.parse(storedObservationsRaw);
+        // No specific sorting needed for map view unless desired
+        setObservations(parsedObservations);
+      } else {
+        setObservations([]);
       }
-    );
-
-    return () => unsubscribe();
+      setError(null);
+    } catch (e) {
+      console.error('Error fetching observations from local storage for map:', e);
+      setError('Failed to load observation data for the map. Data might be corrupted.');
+      setObservations([]);
+    }
+    setLoading(false);
   }, []);
 
   return (
@@ -73,7 +56,7 @@ export default function MapViewPage() {
           Observation Map View
         </h1>
         <p className="text-muted-foreground mt-2 text-lg">
-          Visualize biodiversity sightings on the map. Pins are approximate based on location text.
+          Visualize biodiversity sightings on the map (data from local storage). Pins are approximate.
         </p>
         <div className="mt-4 space-x-2">
           <Button variant="outline" asChild>
