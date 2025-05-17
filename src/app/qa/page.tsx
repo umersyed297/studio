@@ -108,7 +108,7 @@ export default function QAPage() {
             type="always" // Scrollbar tracks always visible
             ref={scrollViewportRef}
           >
-            <div className="space-y-4"> {/* Simple wrapper for message spacing */}
+            <div className="space-y-4"> {/* Wrapper for message spacing */}
               {chatHistory.length === 0 && !isLoading && (
                 <div className="flex flex-col items-center justify-center h-full text-muted-foreground" style={{minHeight: '150px'}}>
                   <BrainCircuit className="h-16 w-16 mb-4 opacity-50" />
@@ -120,7 +120,7 @@ export default function QAPage() {
                 <div
                   key={msg.id}
                   className={cn(
-                    'flex items-end space-x-2 my-3',
+                    'flex items-end space-x-2', // Removed my-3, space-y-4 on parent handles vertical spacing
                     msg.sender === 'user' ? 'justify-end' : 'justify-start'
                   )}
                 >
@@ -144,7 +144,7 @@ export default function QAPage() {
                           : 'bg-card text-card-foreground rounded-bl-none border'
                     )}
                   >
-                    <p>{msg.text}</p>
+                    <p className="whitespace-pre-wrap">{msg.text}</p> {/* Added whitespace-pre-wrap */}
                      <p className={cn(
                         "text-xs mt-1",
                         msg.sender === 'user' ? 'text-primary-foreground/70 text-right' : 'text-muted-foreground/70 text-left'
@@ -162,7 +162,7 @@ export default function QAPage() {
                 </div>
               ))}
               {isLoading && chatHistory[chatHistory.length-1]?.sender === 'user' && (
-                <div className="flex items-end space-x-2 justify-start my-3">
+                <div className="flex items-end space-x-2 justify-start"> {/* Removed my-3 */}
                   <Avatar className="h-8 w-8 self-start">
                      <AvatarFallback className="bg-primary text-primary-foreground">
                           <Bot size={20} />
