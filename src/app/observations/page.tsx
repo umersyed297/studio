@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Home, ListChecks, Search, FilterX } from 'lucide-react';
+import { Home, ListChecks, Search, FilterX, MapIcon } from 'lucide-react';
 
 // Define a client-side Observation type where Timestamps are Dates
 interface ClientObservation extends Omit<ObservationType, 'dateObserved' | 'createdAt'> {
@@ -108,11 +108,18 @@ export default function ViewObservationsPage() {
         <p className="text-muted-foreground mt-2 text-lg">
           Browse through all submitted biodiversity sightings.
         </p>
-         <Button variant="outline" asChild className="mt-4">
-            <Link href="/">
-              <Home className="mr-2 h-4 w-4" /> Go to Submit Page
-            </Link>
-          </Button>
+         <div className="mt-4 space-x-2">
+            <Button variant="outline" asChild>
+              <Link href="/">
+                <Home className="mr-2 h-4 w-4" /> Go to Submit Page
+              </Link>
+            </Button>
+            <Button variant="outline" asChild>
+              <Link href="/map">
+                <MapIcon className="mr-2 h-4 w-4" /> View Map
+              </Link>
+            </Button>
+          </div>
       </header>
 
       <Card className="mb-8 shadow-lg">
@@ -205,4 +212,3 @@ export default function ViewObservationsPage() {
     </main>
   );
 }
-

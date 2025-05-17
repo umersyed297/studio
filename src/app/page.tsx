@@ -1,6 +1,6 @@
 
 import ObservationForm from '@/components/observation-form';
-import { Leaf, ListChecks } from 'lucide-react';
+import { Leaf, ListChecks, MapIcon } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 
@@ -15,12 +15,20 @@ export default function Home() {
         <p className="text-muted-foreground mt-2 text-lg">
           Document your wildlife sightings and get AI-powered species suggestions.
         </p>
-        <Button asChild variant="outline" className="mt-6">
-          <Link href="/observations">
-            <ListChecks className="mr-2 h-4 w-4" />
-            View All Observations
-          </Link>
-        </Button>
+        <div className="mt-6 space-x-2 md:space-x-4">
+          <Button asChild variant="outline">
+            <Link href="/observations">
+              <ListChecks className="mr-2 h-4 w-4" />
+              View All Observations
+            </Link>
+          </Button>
+          <Button asChild variant="outline">
+            <Link href="/map">
+              <MapIcon className="mr-2 h-4 w-4" />
+              View Map
+            </Link>
+          </Button>
+        </div>
       </header>
       <ObservationForm />
     </main>
