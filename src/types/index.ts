@@ -1,8 +1,7 @@
 
-// Firebase Timestamp import is no longer needed: import type { Timestamp } from 'firebase/firestore';
-
 export interface Observation {
-  id: string; // Will be a simple unique ID like timestamp string
+  id: string; // MongoDB _id as string
+  observerName?: string; // Added for Top Observers
   speciesName?: string;
   dateObserved: string; // Store as ISO string
   location: string;
@@ -10,4 +9,9 @@ export interface Observation {
   notes?: string;
   aiSuggestedSpecies: string[];
   createdAt: string; // Store as ISO string
+}
+
+export interface UserObservationCount {
+  userId: string; // Corresponds to observerName
+  count: number;
 }

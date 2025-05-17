@@ -4,34 +4,26 @@
 import React, { useState, useCallback } from 'react';
 import { GoogleMap, useLoadScript, MarkerF, InfoWindowF } from '@react-google-maps/api';
 import { format, parseISO } from 'date-fns';
-import type { Observation as ObservationType } from '@/types';
+import type { Observation as ObservationType } from '@/types'; // Using the main Observation type
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AlertTriangle } from 'lucide-react';
 
-// Client-side Observation type where dates are strings
-interface ClientObservation extends Omit<ObservationType, 'dateObserved' | 'createdAt'> {
-  id: string;
-  dateObserved: string; // ISO string
-  createdAt: string;    // ISO string
-}
-
 interface MapDisplayProps {
-  observations: ClientObservation[];
+  observations: ObservationType[]; // Expects ObservationType now
   googleMapsApiKey: string | undefined;
 }
 
 const MAP_CENTER_ISLAMABAD = { lat: 33.7379, lng: 73.0844 }; // Islamabad, Pakistan
 const DEFAULT_ZOOM = 10;
-const SIMULATION_SPREAD = 0.05; // Spread for simulated coordinates
+const SIMULATION_SPREAD = 0.05; 
 
-// Simple hash function to generate somewhat consistent offsets from a string
 function simpleHash(str: string): number {
   let hash = 0;
   for (let i = 0; i < str.length; i++) {
     const char = str.charCodeAt(i);
     hash = (hash << 5) - hash + char;
-    hash |= 0; // Convert to 32bit integer
+    hash |= 0; 
   }
   return Math.abs(hash);
 }
@@ -41,13 +33,16 @@ interface SimulatedCoordinates {
   lng: number;
 }
 
-// Generates simulated coordinates based on location name
 function getSimulatedCoords(locationName: string): SimulatedCoordinates {
-  const hashLat = simpleHash(locationName + '_lat_v2_local'); // Changed seed slightly
-  const hashLng = simpleHash(locationName + '_lng_v2_local'); // Changed seed slightly
+  // Use a consistent seed for a given location name to ensure pins don't jump around on re-renders
+  // If location names are very similar, their pins might be very close or overlap.
+  // Adding more unique parts of the observation (like ID or timestamp) to the hash input
+  // could spread them more, but might make it harder to find the "center" of a location.
+  // For this prototype, just location name is fine.
+  const hashLat = simpleHash(locationName + '_lat_v3_mongo');
+  const hashLng = simpleHash(locationName + '_lng_v3_mongo');
 
-  // Generate pseudo-random offsets within the spread
-  const latOffset = ((hashLat % 2000) / 1000 - 1) * SIMULATION_SPREAD; // Range -SIMULATION_SPREAD to +SIMULATION_SPREAD
+  const latOffset = ((hashLat % 2000) / 1000 - 1) * SIMULATION_SPREAD; 
   const lngOffset = ((hashLng % 2000) / 1000 - 1) * SIMULATION_SPREAD;
   
   return {
@@ -60,17 +55,17 @@ function getSimulatedCoords(locationName: string): SimulatedCoordinates {
 const mapContainerStyle = {
   width: '100%',
   height: '70vh',
-  borderRadius: '0.5rem', // Equivalent to rounded-lg
-  boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)', // A light shadow
+  borderRadius: '0.5rem',
+  boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)', 
 };
 
 const libraries: ('places' | 'drawing' | 'geometry' | 'visualization')[] = ['places'];
 
 export function MapDisplay({ observations, googleMapsApiKey }: MapDisplayProps) {
-  const [selectedObservation, setSelectedObservation] = useState<ClientObservation | null>(null);
+  const [selectedObservation, setSelectedObservation] = useState<ObservationType | null>(null);
 
   const { isLoaded, loadError } = useLoadScript({
-    googleMapsApiKey: googleMapsApiKey || '', // Ensure it's not undefined for useLoadScript
+    googleMapsApiKey: googleMapsApiKey || '',
     libraries,
     preventGoogleFontsLoading: true,
   });
@@ -81,6 +76,7 @@ export function MapDisplay({ observations, googleMapsApiKey }: MapDisplayProps) 
 
   const formatInfoWindowDate = (dateString: string) => {
     try {
+      // Dates from MongoDB are already ISO strings if handled correctly by server action
       return format(parseISO(dateString), 'PPP');
     } catch (e) {
       return "Invalid date";
@@ -100,10 +96,10 @@ export function MapDisplay({ observations, googleMapsApiKey }: MapDisplayProps) 
     );
   }
 
-  if (!isLoaded || !googleMapsApiKey) { // Check for API key presence here too
+  if (!isLoaded || !googleMapsApiKey) {
     return (
       <div className="space-y-4">
-        {!googleMapsApiKey && ( // This alert is specifically for the missing key
+        {!googleMapsApiKey && (
            <Alert variant="destructive">
             <AlertTriangle className="h-4 w-4" />
             <AlertTitle>Configuration Missing</AlertTitle>
@@ -134,7 +130,7 @@ export function MapDisplay({ observations, googleMapsApiKey }: MapDisplayProps) 
         const position = getSimulatedCoords(obs.location);
         return (
           <MarkerF
-            key={obs.id}
+            key={obs.id} // Use MongoDB _id as key
             position={position}
             onClick={() => setSelectedObservation(obs)}
             title={`${obs.speciesName || 'Unknown Species'} at ${obs.location}`}
@@ -152,6 +148,11 @@ export function MapDisplay({ observations, googleMapsApiKey }: MapDisplayProps) 
             <h3 className="text-md font-semibold text-primary">
               {selectedObservation.speciesName || 'Unknown Species'}
             </h3>
+             {selectedObservation.observerName && (
+              <p className="text-xs text-muted-foreground">
+                By: {selectedObservation.observerName}
+              </p>
+            )}
             <p className="text-xs text-muted-foreground">
               Location: {selectedObservation.location}
             </p>

@@ -1,6 +1,8 @@
 
 'use client';
 
+import React, { useState, useEffect } from 'react';
+import Link from 'next/link';
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -12,56 +14,38 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Trophy, Home, Users } from "lucide-react";
-import Link from "next/link";
-
-interface MockObservation {
-  id: string;
-  userId: string; // Represents username
-  speciesName: string;
-  location: string;
-  timestamp: string;
-}
-
-interface UserObservationCount {
-  userId: string;
-  count: number;
-}
-
-// Enhanced Mock data for more interesting leaderboard
-const mockObservations: MockObservation[] = [
-  { id: "1", userId: "WildlifeWatcher01", speciesName: "Golden Eagle", location: "Mountain Peak", timestamp: "2023-10-27T10:00:00Z" },
-  { id: "2", userId: "EcoExplorer", speciesName: "Red Fox", location: "Forest Trail", timestamp: "2023-10-27T10:15:00Z" },
-  { id: "3", userId: "WildlifeWatcher01", speciesName: "Monarch Butterfly", location: "Meadow", timestamp: "2023-10-27T10:30:00Z" },
-  { id: "4", userId: "BioBuff", speciesName: "Grizzly Bear", location: "Riverbank", timestamp: "2023-10-27T10:45:00Z" },
-  { id: "5", userId: "EcoExplorer", speciesName: "Great Horned Owl", location: "Old Barn", timestamp: "2023-10-27T11:00:00Z" },
-  { id: "6", userId: "WildlifeWatcher01", speciesName: "White-tailed Deer", location: "Woodland Edge", timestamp: "2023-10-27T11:15:00Z" },
-  { id: "7", userId: "WildlifeWatcher01", speciesName: "Painted Turtle", location: "Pond", timestamp: "2023-10-27T11:30:00Z" },
-  { id: "8", userId: "EcoExplorer", speciesName: "American Robin", location: "Backyard", timestamp: "2023-10-27T11:45:00Z" },
-  { id: "9", userId: "BioBuff", speciesName: "Coyote", location: "Open Field", timestamp: "2023-10-27T12:00:00Z" },
-  { id: "10", userId: "WildlifeWatcher01", speciesName: "Northern Cardinal", location: "Bird Feeder", timestamp: "2023-10-27T12:15:00Z" },
-  { id: "11", userId: "NatureNovice", speciesName: "Eastern Gray Squirrel", location: "Park", timestamp: "2023-10-28T09:00:00Z"},
-  { id: "12", userId: "EcoExplorer", speciesName: "Mallard Duck", location: "Lake", timestamp: "2023-10-28T09:30:00Z"},
-  { id: "13", userId: "BioBuff", speciesName: "Raccoon", location: "Urban Area", timestamp: "2023-10-28T10:00:00Z"},
-  { id: "14", userId: "WildlifeWatcher01", speciesName: "Osprey", location: "Coastal Area", timestamp: "2023-10-28T10:30:00Z"},
-  { id: "15", userId: "EcoExplorer", speciesName: "Bumblebee", location: "Flower Garden", timestamp: "2023-10-28T11:00:00Z"},
-];
-
-const countObservationsByUser = (
-  observations: MockObservation[]
-): UserObservationCount[] => {
-  const userCounts: { [key: string]: number } = {};
-  observations.forEach((obs) => {
-    userCounts[obs.userId] = (userCounts[obs.userId] || 0) + 1;
-  });
-
-  return Object.keys(userCounts)
-    .map((userId) => ({ userId, count: userCounts[userId] }))
-    .sort((a, b) => b.count - a.count); // Sort descending by count
-};
+import { Skeleton } from '@/components/ui/skeleton';
+import { Trophy, Home, Users, AlertTriangle, RefreshCw } from "lucide-react";
+import type { UserObservationCount } from '@/types';
+import { getTopObserversAction } from '@/lib/actions';
 
 export default function TopObserversPage() {
-  const userObservationCounts = countObservationsByUser(mockObservations);
+  const [userObservationCounts, setUserObservationCounts] = useState<UserObservationCount[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchTopObservers = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const result = await getTopObserversAction();
+      if (result.success && result.data) {
+        setUserObservationCounts(result.data);
+      } else {
+        setError(result.error || 'Failed to load top observers data.');
+        setUserObservationCounts([]);
+      }
+    } catch (e) {
+      console.error('Error fetching top observers:', e);
+      setError((e as Error).message || 'An unexpected error occurred.');
+      setUserObservationCounts([]);
+    }
+    setLoading(false);
+  };
+
+  useEffect(() => {
+    fetchTopObservers();
+  }, []);
 
   return (
     <main className="container mx-auto px-4 py-8 min-h-screen">
@@ -71,14 +55,18 @@ export default function TopObserversPage() {
           Top Observers
         </h1>
         <p className="text-muted-foreground mt-2 text-lg">
-          See who is leading the way in documenting biodiversity! (Based on mock data)
+          See who is leading the way in documenting biodiversity! (Data from MongoDB)
         </p>
-        <div className="mt-6">
+        <div className="mt-6 space-x-2 flex justify-center items-center">
           <Button asChild variant="outline">
             <Link href="/">
               <Home className="mr-2 h-4 w-4" />
               Back to Home
             </Link>
+          </Button>
+          <Button variant="outline" onClick={fetchTopObservers} disabled={loading}>
+            <RefreshCw className={`mr-2 h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+            Refresh Leaderboard
           </Button>
         </div>
       </header>
@@ -91,12 +79,30 @@ export default function TopObserversPage() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          {userObservationCounts.length > 0 ? (
+          {loading && (
+            <div className="space-y-2 p-4">
+              <Skeleton className="h-8 w-full rounded" />
+              <Skeleton className="h-8 w-full rounded" />
+              <Skeleton className="h-8 w-full rounded" />
+              <Skeleton className="h-8 w-full rounded" />
+              <Skeleton className="h-8 w-full rounded" />
+            </div>
+          )}
+
+          {!loading && error && (
+            <div className="text-center py-10 bg-destructive/10 p-6 rounded-md">
+              <AlertTriangle className="mx-auto h-12 w-12 text-destructive mb-4" />
+              <p className="text-destructive text-lg font-semibold">Error Loading Leaderboard</p>
+              <p className="text-destructive/80">{error}</p>
+            </div>
+          )}
+
+          {!loading && !error && userObservationCounts.length > 0 && (
             <Table>
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-[80px] text-center">Rank</TableHead>
-                  <TableHead>Username</TableHead>
+                  <TableHead>Observer Name</TableHead>
                   <TableHead className="text-center">Observations</TableHead>
                   <TableHead className="text-right">Status</TableHead>
                 </TableRow>
@@ -119,7 +125,8 @@ export default function TopObserversPage() {
                 ))}
               </TableBody>
             </Table>
-          ) : (
+          )}
+          {!loading && !error && userObservationCounts.length === 0 && (
             <p className="text-muted-foreground text-center py-4">No observation data available to display leaderboard.</p>
           )}
         </CardContent>

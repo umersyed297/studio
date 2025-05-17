@@ -3,7 +3,6 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
-// Removed Firebase imports
 import type { Observation as ObservationType } from '@/types';
 import { ObservationDisplayCard } from '@/components/observation-display-card';
 import { Input } from '@/components/ui/input';
@@ -11,45 +10,39 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Home, ListChecks, Search, FilterX, MapIcon, AlertTriangle } from 'lucide-react';
-
-// Client-side Observation type where dates are strings (ISO format from Local Storage)
-interface ClientObservation extends Omit<ObservationType, 'dateObserved' | 'createdAt'> {
-  id: string;
-  dateObserved: string; // Will be ISO string
-  createdAt: string;    // Will be ISO string
-}
+import { Home, ListChecks, Search, FilterX, MapIcon, AlertTriangle, RefreshCw } from 'lucide-react';
+import { getObservationsAction } from '@/lib/actions'; // Using server action
 
 const ALL_SPECIES_OPTION_VALUE = "__ALL_SPECIES_PLACEHOLDER__";
-const LOCAL_STORAGE_KEY = 'observations';
 
 export default function ViewObservationsPage() {
-  const [observations, setObservations] = useState<ClientObservation[]>([]);
+  const [observations, setObservations] = useState<ObservationType[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [speciesFilter, setSpeciesFilter] = useState<string>('');
   const [locationSearch, setLocationSearch] = useState<string>('');
 
-  useEffect(() => {
+  const fetchObservations = async () => {
     setLoading(true);
+    setError(null);
     try {
-      const storedObservationsRaw = localStorage.getItem(LOCAL_STORAGE_KEY);
-      if (storedObservationsRaw) {
-        const parsedObservations: ClientObservation[] = JSON.parse(storedObservationsRaw);
-        // Sort observations by createdAt date string in descending order
-        // Note: For more robust date sorting, convert to Date objects, but string sort works for ISO
-        parsedObservations.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
-        setObservations(parsedObservations);
+      const result = await getObservationsAction();
+      if (result.success && result.data) {
+        setObservations(result.data);
       } else {
-        setObservations([]); // No observations stored yet
+        setError(result.error || 'Failed to load observations.');
+        setObservations([]);
       }
-      setError(null);
     } catch (e) {
-      console.error('Error fetching observations from local storage:', e);
-      setError('Failed to load observations from local storage. Data might be corrupted.');
+      console.error('Error fetching observations:', e);
+      setError((e as Error).message || 'An unexpected error occurred.');
       setObservations([]);
     }
     setLoading(false);
+  };
+
+  useEffect(() => {
+    fetchObservations();
   }, []);
 
   const uniqueSpecies = useMemo(() => {
@@ -58,10 +51,6 @@ export default function ViewObservationsPage() {
       if (obs.speciesName && obs.speciesName.trim() !== '') {
         speciesSet.add(obs.speciesName.trim());
       }
-      // Consider also adding AI suggested species to the filter if desired
-      // obs.aiSuggestedSpecies?.forEach(name => {
-      //   if (name && name.trim() !== '') speciesSet.add(name.trim());
-      // });
     });
     return Array.from(speciesSet).sort((a,b) => a.toLowerCase().localeCompare(b.toLowerCase()));
   }, [observations]);
@@ -100,9 +89,9 @@ export default function ViewObservationsPage() {
           View Observations
         </h1>
         <p className="text-muted-foreground mt-2 text-lg">
-          Browse through all submitted biodiversity sightings (stored locally in your browser).
+          Browse through all submitted biodiversity sightings from the database.
         </p>
-         <div className="mt-4 space-x-2">
+         <div className="mt-4 space-x-2 flex justify-center items-center">
             <Button variant="outline" asChild>
               <Link href="/">
                 <Home className="mr-2 h-4 w-4" /> Go to Submit Page
@@ -112,6 +101,10 @@ export default function ViewObservationsPage() {
               <Link href="/map">
                 <MapIcon className="mr-2 h-4 w-4" /> View Map
               </Link>
+            </Button>
+            <Button variant="outline" onClick={fetchObservations} disabled={loading}>
+              <RefreshCw className={`mr-2 h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+              Refresh
             </Button>
           </div>
       </header>

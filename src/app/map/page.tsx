@@ -3,49 +3,43 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-// Removed Firebase imports
 import type { Observation as ObservationType } from '@/types';
 import { MapDisplay } from '@/components/map-display';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Home, ListChecks, MapIcon, AlertTriangle } from 'lucide-react';
-
-// Client-side Observation type where dates are strings (ISO format from Local Storage)
-interface ClientObservation extends Omit<ObservationType, 'dateObserved' | 'createdAt'> {
-  id: string;
-  dateObserved: string; // Will be ISO string
-  createdAt: string;    // Will be ISO string
-}
-
-const LOCAL_STORAGE_KEY = 'observations';
+import { Home, ListChecks, MapIcon, AlertTriangle, RefreshCw } from 'lucide-react';
+import { getObservationsAction } from '@/lib/actions'; // Using server action
 
 export default function MapViewPage() {
-  const [observations, setObservations] = useState<ClientObservation[]>([]);
+  const [observations, setObservations] = useState<ObservationType[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const googleMapsApiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
 
-  useEffect(() => {
+  const fetchObservationsForMap = async () => {
     setLoading(true);
+    setError(null);
     try {
-      const storedObservationsRaw = localStorage.getItem(LOCAL_STORAGE_KEY);
-      if (storedObservationsRaw) {
-        const parsedObservations: ClientObservation[] = JSON.parse(storedObservationsRaw);
-        // No specific sorting needed for map view unless desired
-        setObservations(parsedObservations);
+      const result = await getObservationsAction();
+      if (result.success && result.data) {
+        setObservations(result.data);
       } else {
+        setError(result.error || 'Failed to load observation data for the map.');
         setObservations([]);
       }
-      setError(null);
     } catch (e) {
-      console.error('Error fetching observations from local storage for map:', e);
-      setError('Failed to load observation data for the map. Data might be corrupted.');
+      console.error('Error fetching observations for map:', e);
+      setError((e as Error).message || 'An unexpected error occurred.');
       setObservations([]);
     }
     setLoading(false);
+  };
+
+  useEffect(() => {
+    fetchObservationsForMap();
   }, []);
 
   return (
@@ -56,9 +50,9 @@ export default function MapViewPage() {
           Observation Map View
         </h1>
         <p className="text-muted-foreground mt-2 text-lg">
-          Visualize biodiversity sightings on the map (data from local storage). Pins are approximate.
+          Visualize biodiversity sightings on the map (data from MongoDB). Pins are approximate.
         </p>
-        <div className="mt-4 space-x-2">
+        <div className="mt-4 space-x-2 flex justify-center items-center">
           <Button variant="outline" asChild>
             <Link href="/">
               <Home className="mr-2 h-4 w-4" /> Submit New
@@ -69,6 +63,10 @@ export default function MapViewPage() {
               <ListChecks className="mr-2 h-4 w-4" /> View List
             </Link>
           </Button>
+           <Button variant="outline" onClick={fetchObservationsForMap} disabled={loading}>
+              <RefreshCw className={`mr-2 h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+              Refresh Map Data
+            </Button>
         </div>
       </header>
 
@@ -92,7 +90,7 @@ export default function MapViewPage() {
           {!loading && !error && (
             <MapDisplay observations={observations} googleMapsApiKey={googleMapsApiKey} />
           )}
-           {!googleMapsApiKey && !loading && ( // Show this even if there are observations, if key is missing
+           {!googleMapsApiKey && !loading && (
              <Alert variant="destructive" className="mt-4">
                 <AlertTriangle className="h-4 w-4" />
                 <AlertTitle>Google Maps API Key Missing</AlertTitle>
