@@ -11,7 +11,6 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Home, ListChecks, Search, FilterX, MapIcon, AlertTriangle, RefreshCw } from 'lucide-react';
-import { getObservationsAction } from '@/lib/actions'; // Using server action
 
 const ALL_SPECIES_OPTION_VALUE = "__ALL_SPECIES_PLACEHOLDER__";
 
@@ -22,27 +21,34 @@ export default function ViewObservationsPage() {
   const [speciesFilter, setSpeciesFilter] = useState<string>('');
   const [locationSearch, setLocationSearch] = useState<string>('');
 
-  const fetchObservations = async () => {
+  const loadObservationsFromLocalStorage = () => {
     setLoading(true);
     setError(null);
     try {
-      const result = await getObservationsAction();
-      if (result.success && result.data) {
-        setObservations(result.data);
+      const storedObservations = localStorage.getItem('observations');
+      if (storedObservations) {
+        const parsedObservations: ObservationType[] = JSON.parse(storedObservations);
+        // Ensure dates are correctly parsed if they become strings after JSON parse
+        // and sort by createdAt if available, or dateObserved as fallback
+        const sortedObservations = parsedObservations.sort((a, b) => {
+          const dateA = new Date(a.createdAt || a.dateObserved).getTime();
+          const dateB = new Date(b.createdAt || b.dateObserved).getTime();
+          return dateB - dateA; // Newest first
+        });
+        setObservations(sortedObservations);
       } else {
-        setError(result.error || 'Failed to load observations.');
         setObservations([]);
       }
     } catch (e) {
-      console.error('Error fetching observations:', e);
-      setError((e as Error).message || 'An unexpected error occurred.');
+      console.error('Error loading observations from Local Storage:', e);
+      setError('Failed to load observations. Data might be corrupted.');
       setObservations([]);
     }
     setLoading(false);
   };
 
   useEffect(() => {
-    fetchObservations();
+    loadObservationsFromLocalStorage();
   }, []);
 
   const uniqueSpecies = useMemo(() => {
@@ -51,6 +57,12 @@ export default function ViewObservationsPage() {
       if (obs.speciesName && obs.speciesName.trim() !== '') {
         speciesSet.add(obs.speciesName.trim());
       }
+      // Also consider AI suggested species for filter options
+      obs.aiSuggestedSpecies?.forEach(s => {
+        if (s && s.trim() !== '') {
+          speciesSet.add(s.trim());
+        }
+      });
     });
     return Array.from(speciesSet).sort((a,b) => a.toLowerCase().localeCompare(b.toLowerCase()));
   }, [observations]);
@@ -89,7 +101,7 @@ export default function ViewObservationsPage() {
           View Observations
         </h1>
         <p className="text-muted-foreground mt-2 text-lg">
-          Browse through all submitted biodiversity sightings from the database.
+          Browse through all submitted biodiversity sightings (from Local Storage).
         </p>
          <div className="mt-4 space-x-2 flex justify-center items-center">
             <Button variant="outline" asChild>
@@ -102,9 +114,9 @@ export default function ViewObservationsPage() {
                 <MapIcon className="mr-2 h-4 w-4" /> View Map
               </Link>
             </Button>
-            <Button variant="outline" onClick={fetchObservations} disabled={loading}>
+            <Button variant="outline" onClick={loadObservationsFromLocalStorage} disabled={loading}>
               <RefreshCw className={`mr-2 h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-              Refresh
+              Refresh List
             </Button>
           </div>
       </header>

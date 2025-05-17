@@ -4,13 +4,13 @@
 import React, { useState, useCallback } from 'react';
 import { GoogleMap, useLoadScript, MarkerF, InfoWindowF } from '@react-google-maps/api';
 import { format, parseISO } from 'date-fns';
-import type { Observation as ObservationType } from '@/types'; // Using the main Observation type
+import type { Observation as ObservationType } from '@/types';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AlertTriangle } from 'lucide-react';
 
 interface MapDisplayProps {
-  observations: ObservationType[]; // Expects ObservationType now
+  observations: ObservationType[];
   googleMapsApiKey: string | undefined;
 }
 
@@ -34,13 +34,10 @@ interface SimulatedCoordinates {
 }
 
 function getSimulatedCoords(locationName: string): SimulatedCoordinates {
-  // Use a consistent seed for a given location name to ensure pins don't jump around on re-renders
-  // If location names are very similar, their pins might be very close or overlap.
-  // Adding more unique parts of the observation (like ID or timestamp) to the hash input
-  // could spread them more, but might make it harder to find the "center" of a location.
-  // For this prototype, just location name is fine.
-  const hashLat = simpleHash(locationName + '_lat_v3_mongo');
-  const hashLng = simpleHash(locationName + '_lng_v3_mongo');
+  // Using a consistent seed for a given location name
+  // For Local Storage version, 'v2' suffix to differentiate from potential previous hashes
+  const hashLat = simpleHash(locationName + '_lat_v2_local');
+  const hashLng = simpleHash(locationName + '_lng_v2_local');
 
   const latOffset = ((hashLat % 2000) / 1000 - 1) * SIMULATION_SPREAD; 
   const lngOffset = ((hashLng % 2000) / 1000 - 1) * SIMULATION_SPREAD;
@@ -76,7 +73,7 @@ export function MapDisplay({ observations, googleMapsApiKey }: MapDisplayProps) 
 
   const formatInfoWindowDate = (dateString: string) => {
     try {
-      // Dates from MongoDB are already ISO strings if handled correctly by server action
+      // Dates from Local Storage are already ISO strings
       return format(parseISO(dateString), 'PPP');
     } catch (e) {
       return "Invalid date";
@@ -130,7 +127,7 @@ export function MapDisplay({ observations, googleMapsApiKey }: MapDisplayProps) 
         const position = getSimulatedCoords(obs.location);
         return (
           <MarkerF
-            key={obs.id} // Use MongoDB _id as key
+            key={obs.id} // Use Local Storage ID as key
             position={position}
             onClick={() => setSelectedObservation(obs)}
             title={`${obs.speciesName || 'Unknown Species'} at ${obs.location}`}
@@ -148,8 +145,11 @@ export function MapDisplay({ observations, googleMapsApiKey }: MapDisplayProps) 
             <h3 className="text-md font-semibold text-primary">
               {selectedObservation.speciesName || 'Unknown Species'}
             </h3>
-             {selectedObservation.observerName && (
+            {/* observerName is not present in Local Storage Observation type, so this part won't render */}
+            {/* @ts-ignore - selectedObservation may not have observerName */}
+            {selectedObservation.observerName && ( 
               <p className="text-xs text-muted-foreground">
+                 {/* @ts-ignore */}
                 By: {selectedObservation.observerName}
               </p>
             )}

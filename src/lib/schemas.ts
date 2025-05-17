@@ -5,7 +5,7 @@ const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 const ACCEPTED_IMAGE_TYPES = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
 
 export const observationFormSchema = z.object({
-  observerName: z.string().trim().min(1, "Observer name is required."),
+  // observerName was removed when reverting from MongoDB
   speciesName: z.string().trim().optional(),
   dateObserved: z.date({
     required_error: "Date observed is required.",

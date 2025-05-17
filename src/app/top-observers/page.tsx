@@ -15,36 +15,34 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Skeleton } from '@/components/ui/skeleton';
-import { Trophy, Home, Users, AlertTriangle, RefreshCw } from "lucide-react";
-import type { UserObservationCount } from '@/types';
-import { getTopObserversAction } from '@/lib/actions';
+import { Trophy, Home, Users } from "lucide-react";
+
+// Mock data for UserObservationCount as this page now uses mock data
+interface UserObservationCount {
+  userId: string;
+  count: number;
+}
+
+// Mock data - in a real app, this would come from a backend or be processed from observations
+const mockUserCounts: UserObservationCount[] = [
+  { userId: "NatureFan123", count: 12 },
+  { userId: "BirdWatcherPro", count: 8 },
+  { userId: "WildernessExplorer", count: 5 },
+  { userId: "BugFinder", count: 3 },
+  { userId: "PlantLover", count: 1 },
+];
 
 export default function TopObserversPage() {
   const [userObservationCounts, setUserObservationCounts] = useState<UserObservationCount[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  const fetchTopObservers = async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const result = await getTopObserversAction();
-      if (result.success && result.data) {
-        setUserObservationCounts(result.data);
-      } else {
-        setError(result.error || 'Failed to load top observers data.');
-        setUserObservationCounts([]);
-      }
-    } catch (e) {
-      console.error('Error fetching top observers:', e);
-      setError((e as Error).message || 'An unexpected error occurred.');
-      setUserObservationCounts([]);
-    }
-    setLoading(false);
-  };
 
   useEffect(() => {
-    fetchTopObservers();
+    // Simulate fetching data
+    setLoading(true);
+    setTimeout(() => {
+      setUserObservationCounts(mockUserCounts.sort((a, b) => b.count - a.count));
+      setLoading(false);
+    }, 500); // Simulate network delay
   }, []);
 
   return (
@@ -55,18 +53,14 @@ export default function TopObserversPage() {
           Top Observers
         </h1>
         <p className="text-muted-foreground mt-2 text-lg">
-          See who is leading the way in documenting biodiversity! (Data from MongoDB)
+          See who is leading the way in documenting biodiversity! (Using Mock Data)
         </p>
-        <div className="mt-6 space-x-2 flex justify-center items-center">
+        <div className="mt-6">
           <Button asChild variant="outline">
             <Link href="/">
               <Home className="mr-2 h-4 w-4" />
               Back to Home
             </Link>
-          </Button>
-          <Button variant="outline" onClick={fetchTopObservers} disabled={loading}>
-            <RefreshCw className={`mr-2 h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-            Refresh Leaderboard
           </Button>
         </div>
       </header>
@@ -89,15 +83,7 @@ export default function TopObserversPage() {
             </div>
           )}
 
-          {!loading && error && (
-            <div className="text-center py-10 bg-destructive/10 p-6 rounded-md">
-              <AlertTriangle className="mx-auto h-12 w-12 text-destructive mb-4" />
-              <p className="text-destructive text-lg font-semibold">Error Loading Leaderboard</p>
-              <p className="text-destructive/80">{error}</p>
-            </div>
-          )}
-
-          {!loading && !error && userObservationCounts.length > 0 && (
+          {!loading && userObservationCounts.length > 0 && (
             <Table>
               <TableHeader>
                 <TableRow>
@@ -126,7 +112,7 @@ export default function TopObserversPage() {
               </TableBody>
             </Table>
           )}
-          {!loading && !error && userObservationCounts.length === 0 && (
+          {!loading && userObservationCounts.length === 0 && (
             <p className="text-muted-foreground text-center py-4">No observation data available to display leaderboard.</p>
           )}
         </CardContent>

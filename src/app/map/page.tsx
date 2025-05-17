@@ -10,7 +10,6 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Home, ListChecks, MapIcon, AlertTriangle, RefreshCw } from 'lucide-react';
-import { getObservationsAction } from '@/lib/actions'; // Using server action
 
 export default function MapViewPage() {
   const [observations, setObservations] = useState<ObservationType[]>([]);
@@ -19,20 +18,26 @@ export default function MapViewPage() {
 
   const googleMapsApiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
 
-  const fetchObservationsForMap = async () => {
+  const fetchObservationsForMap = () => {
     setLoading(true);
     setError(null);
     try {
-      const result = await getObservationsAction();
-      if (result.success && result.data) {
-        setObservations(result.data);
+      const storedObservations = localStorage.getItem('observations');
+      if (storedObservations) {
+        const parsedObservations: ObservationType[] = JSON.parse(storedObservations);
+        // Sort by createdAt if available, or dateObserved as fallback
+        const sortedObservations = parsedObservations.sort((a, b) => {
+            const dateA = new Date(a.createdAt || a.dateObserved).getTime();
+            const dateB = new Date(b.createdAt || b.dateObserved).getTime();
+            return dateB - dateA; // Newest first
+        });
+        setObservations(sortedObservations);
       } else {
-        setError(result.error || 'Failed to load observation data for the map.');
         setObservations([]);
       }
     } catch (e) {
-      console.error('Error fetching observations for map:', e);
-      setError((e as Error).message || 'An unexpected error occurred.');
+      console.error('Error loading observations from Local Storage for map:', e);
+      setError('Failed to load observation data for the map.');
       setObservations([]);
     }
     setLoading(false);
@@ -50,7 +55,7 @@ export default function MapViewPage() {
           Observation Map View
         </h1>
         <p className="text-muted-foreground mt-2 text-lg">
-          Visualize biodiversity sightings on the map (data from MongoDB). Pins are approximate.
+          Visualize biodiversity sightings on the map (data from Local Storage). Pins are approximate.
         </p>
         <div className="mt-4 space-x-2 flex justify-center items-center">
           <Button variant="outline" asChild>
@@ -90,7 +95,7 @@ export default function MapViewPage() {
           {!loading && !error && (
             <MapDisplay observations={observations} googleMapsApiKey={googleMapsApiKey} />
           )}
-           {!googleMapsApiKey && !loading && (
+           {!googleMapsApiKey && !loading && ( // This check remains useful
              <Alert variant="destructive" className="mt-4">
                 <AlertTriangle className="h-4 w-4" />
                 <AlertTitle>Google Maps API Key Missing</AlertTitle>

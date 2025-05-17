@@ -6,7 +6,7 @@ import React, { useState, useEffect } from 'react';
 import { useForm, type SubmitHandler } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { format } from 'date-fns';
-import { CalendarIcon, MapPin, ImageUp, FileText, Wand2, Leaf, Loader2, AlertTriangle, User } from 'lucide-react';
+import { CalendarIcon, MapPin, ImageUp, FileText, Wand2, Leaf, Loader2, AlertTriangle } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
@@ -20,7 +20,7 @@ import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { observationFormSchema, type ObservationFormValues } from '@/lib/schemas';
 import { suggestSpeciesNames } from '@/ai/flows/suggest-species-names';
-import { saveObservationAction } from '@/lib/actions'; // Switched to server action
+import type { Observation } from '@/types';
 
 export default function ObservationForm() {
   const [imagePreview, setImagePreview] = useState<string | null>(null);
@@ -33,7 +33,7 @@ export default function ObservationForm() {
   const form = useForm<ObservationFormValues>({
     resolver: zodResolver(observationFormSchema),
     defaultValues: {
-      observerName: '',
+      // observerName: '', // Removed
       speciesName: '',
       location: '',
       notes: '',
@@ -92,10 +92,12 @@ export default function ObservationForm() {
   };
   
   useEffect(() => {
-    if (form.formState.dirtyFields.imageFile) {
+    // This effect ensures validation runs if imageFile is touched or changed.
+    // form.formState.dirtyFields.imageFile is not reliable enough alone.
+    if (form.watch('imageFile') !== form.formState.defaultValues?.imageFile) {
       form.trigger("imageFile");
     }
-  }, [form.watch('imageFile'), form.trigger, form.formState.dirtyFields.imageFile]);
+  }, [form.watch('imageFile'), form.trigger, form.formState.defaultValues?.imageFile]);
 
 
   const onSubmit: SubmitHandler<ObservationFormValues> = async (data) => {
@@ -108,40 +110,42 @@ export default function ObservationForm() {
       return;
     }
 
-    const observationData = {
-      observerName: data.observerName,
+    const newObservation: Observation = {
+      id: Date.now().toString(), // Simple ID for Local Storage
+      // observerName: data.observerName, // Removed
       speciesName: data.speciesName,
       dateObserved: data.dateObserved.toISOString(),
       location: data.location,
       imageUrl: imageDataUri,
       notes: data.notes,
       aiSuggestedSpecies: aiSuggestions,
-      // createdAt will be set by the server action
+      createdAt: new Date().toISOString(),
     };
 
     try {
-      const result = await saveObservationAction(observationData);
-      if (result.success && result.data) {
-        toast({
-          title: 'Success!',
-          description: 'Observation saved to database!',
-          variant: 'default',
-        });
-        form.reset();
-        setImagePreview(null);
-        setImageDataUri(null);
-        setAiSuggestions([]);
-        setAiError(null);
-        
-        const fileInput = document.getElementById('imageFile-input') as HTMLInputElement | null;
-        if (fileInput) {
-          fileInput.value = '';
-        }
-      } else {
-        throw new Error(result.error || 'Failed to save observation.');
+      const existingObservationsRaw = localStorage.getItem('observations');
+      const existingObservations: Observation[] = existingObservationsRaw ? JSON.parse(existingObservationsRaw) : [];
+      existingObservations.unshift(newObservation); // Add to the beginning for newest first
+      localStorage.setItem('observations', JSON.stringify(existingObservations));
+
+      toast({
+        title: 'Success!',
+        description: 'Observation saved to Local Storage!',
+        variant: 'default',
+      });
+      form.reset();
+      setImagePreview(null);
+      setImageDataUri(null);
+      setAiSuggestions([]);
+      setAiError(null);
+      
+      // Reset file input visually
+      const fileInput = document.getElementById('imageFile-input') as HTMLInputElement | null;
+      if (fileInput) {
+        fileInput.value = '';
       }
     } catch (error) {
-      console.error('Error saving observation:', error);
+      console.error('Error saving observation to Local Storage:', error);
       toast({
         title: 'Error',
         description: (error as Error).message || 'Failed to save observation. Please try again.',
@@ -157,27 +161,12 @@ export default function ObservationForm() {
           <Leaf className="mr-2 h-6 w-6 text-primary" />
           Submit Observation
         </CardTitle>
-        <CardDescription>Fill in the details of your nature sighting. Data is saved to MongoDB.</CardDescription>
+        <CardDescription>Fill in the details of your nature sighting. Data is saved to Local Storage.</CardDescription>
       </CardHeader>
       <CardContent>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-            <FormField
-              control={form.control}
-              name="observerName"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel htmlFor="observerName-input">Observer Name</FormLabel>
-                  <div className="relative">
-                    <FormControl>
-                      <Input id="observerName-input" placeholder="e.g., Jane Doe" {...field} className="pl-10" />
-                    </FormControl>
-                    <User className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                  </div>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+            {/* ObserverName field removed */}
 
             <FormField
               control={form.control}
@@ -250,7 +239,7 @@ export default function ObservationForm() {
             <FormField
               control={form.control}
               name="imageFile"
-              render={({ field: { onChange, value, ...restField }}) => (
+              render={({ field: { onChange, value, ...restField }}) => ( // `value` is FileList here from react-hook-form
                 <FormItem>
                   <FormLabel htmlFor="imageFile-input">Upload Image</FormLabel>
                   <div className="relative">
@@ -260,8 +249,9 @@ export default function ObservationForm() {
                           type="file" 
                           accept="image/png, image/jpeg, image/webp" 
                           onChange={(e) => {
-                            onChange(e.target.files);
-                            handleImageChange(e); 
+                            // `onChange` from RHF expects FileList or specific structure. Pass original event files.
+                            onChange(e.target.files); 
+                            handleImageChange(e); // Then call our custom handler
                           }}
                           ref={restField.ref}
                           name={restField.name}
@@ -348,7 +338,7 @@ export default function ObservationForm() {
                     Processing...
                   </>
                 ) : (
-                  'Submit Observation (Save to DB)'
+                  'Submit Observation (Save to Local Storage)'
                 )}
               </Button>
             </CardFooter>
